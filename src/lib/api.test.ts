@@ -1,6 +1,13 @@
 /// <reference types="node" />
 import assert from "node:assert/strict"
-import { groupView, groupsOf, safeNodes, sample, speedHistory, type Node } from "./api.ts"
+import { groupView, groupsOf, normalizeApiPath, safeNodes, sample, speedHistory, type Node } from "./api.ts"
+
+assert.equal(normalizeApiPath("/config"), "/api/config")
+assert.equal(normalizeApiPath("/servers"), "/api/servers")
+assert.equal(normalizeApiPath("/server?id=abc"), "/api/server?id=abc")
+assert.equal(normalizeApiPath("/history/all?id=abc&hours=0.167"), "/api/history/all?id=abc&hours=0.167")
+assert.equal(normalizeApiPath("/api/servers"), "/api/servers")
+console.log("CFSM API path prefix: all passed")
 
 const node = { id: 1, metrics: { uptime: 100, cpu: 1, load: [0.1, 0.2, 0.3],
   mem_total: 1024, mem_used: 512, swap_total: 0, swap_used: 0, disk_total: 2048, disk_used: 1024,
