@@ -557,3 +557,5 @@ export function useNodes(activeId:string|null=null) {
 
   return {nodes,detailNode,error,closed,siteConfig,stats,sysConfig}
 }
+
+// CFSM adapter build checkpoint.
