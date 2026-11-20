@@ -3,7 +3,7 @@ import type { Node } from "@/lib/api"
 /**
  * 列表页顶上那行概览卡片要用的合计值。
  *
- * 全部来自 `/api/nodes` 里本来就有的字段——`month_rx`、`total_rx`、`metrics.net_rx`——
+ * 本月 / 累计用量来自 `/api/servers` 的现有字段；实时速率来自最新指标。
  * 所以这一行开着也不多发一个请求（唯一的例外是实时网速下面那条走势线，它画的是
  * 访客自己攒下的采样，见 api.ts 的 `speedHistory`）。
  *
