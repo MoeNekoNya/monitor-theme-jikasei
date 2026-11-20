@@ -264,7 +264,6 @@
      tap-8   32 高  → 44    （站名）
      tap-10  40 高  → 44
      tap-y-6 24 高  → 44 高，横向不动 —— 密排的分段按钮之间别互相盖住
-   地区列表（.globe-reg）行距只有 8px，上下各撑 4px 到 28px 就不重叠了，再大就得动视觉。 */
 .tap { position: relative; }
 .tap::before { content: ""; position: absolute; border-radius: inherit; }
 /* ★ 同一个元素同时戴 `tap` 和 `absolute` 时，`absolute` 必须赢 —— 与上面 search-clear 那条
@@ -277,8 +276,6 @@
 .tap-10::before { inset: -2px; }
 .tap-y-9::before { inset: -4px 0; }
 .tap-y-6::before { inset: -10px 0; }
-.globe-reg { position: relative; }
-.globe-reg::before { content: ""; position: absolute; inset: -4px 0; border-radius: 4px; }
 
 /* ---------------------------------------------------------------- 详细档三枚读数盒的让位规则
 
