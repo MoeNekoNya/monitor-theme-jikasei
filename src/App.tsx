@@ -137,7 +137,8 @@ type ListState = { group: string | null; region: string | null; q: string }
 
 /** 从地址栏读筛选三件套（首次加载与 popstate 各读一次）。 */
 function readListState(): ListState {
-  const p = new URLSearchParams(location.search)
+  const route = new URL(location.hash.slice(1) || "/", location.origin)
+  const p = route.searchParams
   return { group: p.get("group"), region: p.get("region"), q: p.get("q") ?? "" }
 }
 
@@ -149,12 +150,13 @@ function pageUrl(id: string | null, tab: string | null, s: ListState): string {
   if (s.q.trim() !== "") p.set("q", s.q)
   if (id !== null && tab) p.set("tab", tab)
   const qs = p.toString()
-  return `${id === null ? "/" : `/node/${encodeURIComponent(id)}`}${qs ? `?${qs}` : ""}`
+  return "/#/" + (id === null ? "" : "server/" + encodeURIComponent(id)) + (qs ? "?" + qs : "")
 }
 
 function useNodeRoute(onPop: (s: ListState) => void) {
   const read = () => {
-    const match = location.pathname.match(/^\/node\/([^/]+)/)
+    const route = new URL(location.hash.slice(1) || "/", location.origin)
+    const match = route.pathname.match(/^\/server\/([^/]+)/)
     return match ? decodeURIComponent(match[1]) : null
   }
   const [id, setId] = useState(read)
@@ -170,7 +172,7 @@ function useNodeRoute(onPop: (s: ListState) => void) {
   return [
     id,
     (next: string | null, url?: string) => {
-      history.pushState({}, "", url ?? (next === null ? "/" : `/node/${encodeURIComponent(next)}`))
+      history.pushState({}, "", url ?? (next === null ? "/#/" : "/#/server/" + encodeURIComponent(next)))
       setId(next)
       scrollTo(0, 0)
     },
