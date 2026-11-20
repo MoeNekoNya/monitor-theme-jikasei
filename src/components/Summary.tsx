@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp } from "lucide-react"
 
 import { Card } from "@/components/ui/card"
 import { DetailScroll } from "@/components/DetailScroll"
+import { TrafficDetail } from "@/components/TrafficDetail"
 import { speedHistory, type Node, type ServerStats } from "@/lib/api"
 import { bytes, rate } from "@/lib/format"
 import { useFx } from "@/lib/fx"
@@ -52,7 +53,7 @@ import { summarize, type Fleet } from "@/lib/summary"
  * blur 关。原来的 hint（原生 title）在这条路径上让位给了浮层尾巴里的同一段说明 ——
  * 两套悬停提示叠在一起会打架，而信息一字不少。
  */
-function Block({ title, hint, detail, wide = false, children }: {
+function Block({ title, hint, detail, wide = false, clickOnly = false, children }: {
   title: string
   /** 悬停提示：口径说明——月度预算与剩余价值那两个数不是一眼能看懂的，得写清楚。 */
   hint?: string
@@ -63,6 +64,8 @@ function Block({ title, hint, detail, wide = false, children }: {
    * 「旗子 + 名字 + 今日上下行」，下面还要放两枚带时刻的峰值，15rem 会挤成三条。
    */
   wide?: boolean
+  /** Expensive details should load only after an explicit click, not a passing hover. */
+  clickOnly?: boolean
   children: ReactNode
 }) {
   const [open, setOpen] = useState(false)
@@ -109,8 +112,8 @@ function Block({ title, hint, detail, wide = false, children }: {
       tabIndex={detail ? 0 : undefined}
       role={detail ? "button" : undefined}
       aria-expanded={detail ? open : undefined}
-      onPointerEnter={detail ? (e) => { if (e.pointerType === "mouse") setOpen(true) } : undefined}
-      onPointerLeave={detail ? (e) => { if (e.pointerType === "mouse") setOpen(false) } : undefined}
+      onPointerEnter={detail && !clickOnly ? (e) => { if (e.pointerType === "mouse") setOpen(true) } : undefined}
+      onPointerLeave={detail && !clickOnly ? (e) => { if (e.pointerType === "mouse") setOpen(false) } : undefined}
       onFocus={detail ? () => setOpen(true) : undefined}
       // ★2026-11-07：焦点挪进**浮层自己**（那一节可聚焦的明细滚动区）不算「离开」——
       //   原来是无条件 `setOpen(false)`，可是 React 的 onBlur 走的是会冒泡的 focusout：
@@ -414,7 +417,7 @@ export function SummaryCards({ nodes, group, finance = false, searching = false,
     /* 版式照参考站：`sm` 起两列、`lg` 起四列。**手机是一列而不是参考站的两列**——参考站每张
        卡只有一个大数，两个数并排也放得下；本站的「本月流量 / 实时网速」一张卡里有两个方向，
        390px 两列时每张卡只有 173px、两个数会各自截断（护栏量过）。 */
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
       {finance ? (
         <>
           {/* 第一张卡：月度预算 + 剩余价值。两个数都是把各站的账按汇率折成人民币后相加，
@@ -451,24 +454,23 @@ export function SummaryCards({ nodes, group, finance = false, searching = false,
       )}
 
       <Tile>
-        {/* 本月流量：卡片面上只有两个数，**悬停/点一下**摊出节点明细（2026-10-30）——
-            每台今天的上下行、以及今天冲到的采样峰值与时刻（见 @/components/TrafficDetail）。 */}
-        <Block title="本月流量" wide>
-          {/* 大数一行（今日上下行），累计并成一行小字——参考站整张卡就是「小标签 / 大数 /
-              一行小字」三段，这样四张卡等高、整行才是一个节奏。四个数一个没少。
-              栅格间距沿用 `gap-x-2`（与 Pair 同一个值）：整行四张卡的第二列因此落在同一条
-              竖线上（护栏钉着）。 */}
+        {/* CFSM exposes monthly counters in /api/servers. Historical peaks load only after the visitor opens the popup. */}
+        <Block title="本月流量" wide clickOnly detail={<TrafficDetail nodes={nodes} />}>
           <div className="mt-1 grid grid-cols-2 gap-x-2 text-2xl font-semibold tracking-tight">
             <Val icon={ArrowDown}><Unit>{bytes(fleet.dayRx)}</Unit></Val>
             <Val icon={ArrowUp}><Unit>{bytes(fleet.dayTx)}</Unit></Val>
           </div>
-          <Foot>
-            <span className="inline-flex items-center gap-1.5">
-              总流量
-              <Val icon={ArrowDown}>{bytes(fleet.totalRx)}</Val>
-              <Val icon={ArrowUp}>{bytes(fleet.totalTx)}</Val>
-            </span>
-          </Foot>
+          <Foot>本月下行 / 上行累计</Foot>
+        </Block>
+      </Tile>
+
+      <Tile>
+        <Block title="总流量">
+          <div className="mt-1 grid grid-cols-2 gap-x-2 text-2xl font-semibold tracking-tight">
+            <Val icon={ArrowDown}><Unit>{bytes(fleet.totalRx)}</Unit></Val>
+            <Val icon={ArrowUp}><Unit>{bytes(fleet.totalTx)}</Unit></Val>
+          </div>
+          <Foot>所有节点历史累计</Foot>
         </Block>
       </Tile>
 
