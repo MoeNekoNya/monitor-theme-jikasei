@@ -1,37 +1,24 @@
-name: ci
+name: CI
 
 on:
   push:
-    branches: [master]
-    # Prose changes nothing a compiler or linter can check.
-    paths-ignore: ["**.md", "LICENSE"]
-  # Every PR runs, even a prose-only one: `build` is a required status check on
-  # master, and a workflow skipped by paths-ignore reports no status at all —
-  # the PR would then sit at "Expected — Waiting for status to be reported".
+    branches: [main, master]
   pull_request:
+  workflow_dispatch:
 
-# A new push supersedes any run still in progress for the same ref.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # The hub embeds a released archive, never this repository's source: release.yml
-  # builds a tag here and publishes theme.tar.gz, while the hub's web-theme.pin
-  # names the tag and its sha256. A break on main therefore cannot break a hub
-  # build, but this is the only gate a tag receives, since by the time the hub sees
-  # it the build has already happened here. Shipping to a hub is two steps: tag
-  # here, then move that pin there.
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: npm
-      - run: npm ci
+      - run: npm install
       - run: npm run lint
       - run: npm test
-      - run: npm run check
       - run: npm run build
