@@ -14,7 +14,7 @@ import { getSiteConfig, api, groupView, useNodes } from "@/lib/api"
 import { regionView } from "@/lib/globe"
 import { hasDetailRemarks } from "@/lib/notes"
 import { searchNodes } from "@/lib/search"
-import { hasGroupTabs, hasSummary, isBudgetLayout, useCardStyle, useGlobeVisible, useLocalFarm, useThemeConfig } from "@/lib/theme-config"
+import { hasGroupTabs, hasSummary, isBudgetLayout, useCardStyle, useGlobeVisible, useThemeConfig } from "@/lib/theme-config"
 import { isBeijingNight, resolveDark, type ThemeMode } from "@/lib/site-settings"
 import type { RemarkPlacement } from "@/lib/site-settings"
 import { FarmIcon } from "@/components/FarmIcon"
@@ -310,7 +310,7 @@ export default function App() {
     setCursor(null)
   }, [])
   const [open, go] = useNodeRoute(onPop)
-  const { nodes, error, closed, siteConfig } = useNodes(open)
+  const { nodes, detailNode, error, closed, siteConfig } = useNodes(open)
   // 访客自己的两个偏好（都只存在他自己浏览器里，见 @/lib/theme-config）：
   // 地球看不看，以及列表用哪种卡片形态 —— 后者没选过时跟着站长的设置走。
   // ★ 站长那档是「节点地球」的**闸门**：他关掉时 `globeOn` 一律是 false，顶栏那枚开关也一起
@@ -439,7 +439,7 @@ export default function App() {
     const hasData = (n: typeof a) => Number(!!(n.online && n.metrics))
     return hasData(b) - hasData(a) || a.sort - b.sort || a.id - b.id
   })
-  const selected = sorted.find((n) => n.cfsmId === open)
+  const selected = detailNode || sorted.find((n) => n.cfsmId === open)
   // 分组筛选只求值一次（@/lib/api 的 groupView）：概览卡片与下面的列表吃的是同一份
   // 「该显示哪几台」，切分组时两边一起变——参考站的内置 default 主题就是这个口径。
   const view = groupView(sorted, group, hasGroupTabs(config.listTop))
@@ -654,7 +654,7 @@ export default function App() {
         {error && <p className="text-sm text-destructive">{error}</p>}
 
         {open !== null ? (
-          !nodes ? (
+          !selected ? (
             <DetailSkeleton />
           ) : selected ? (
             <Suspense fallback={<DetailSkeleton hasRemarks={hasDetailRemarks(selected, config.remarkPlacement)} hasConnections={!!selected.metrics} hasPrice={selected.price > 0} hasSpecs={selected.cpu_cores > 0 || selected.mem_total > 0} />}>
