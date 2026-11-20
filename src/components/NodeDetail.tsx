@@ -188,7 +188,7 @@ export function NodeDetail({ node, embedded = false, onOpenDetail, historyDays, 
   }
   // Each tab keeps its own range: a 7-day trend and a 1-hour trace answer
   // different questions.
-  const [ranges, setRanges] = useState({ resources: 6, latency: 6 })
+  const [ranges, setRanges] = useState({ resources: 0.167, latency: 0.167 })
   // 可选窗口按保留天数生成（老 hub 按 7 天，结果与 1.15.x 那排逐字相同）。
   const RANGES = rangesFor(historyDays)
   const RANGES_FOR = { resources: RANGES, latency: RANGES }
