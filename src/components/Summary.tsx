@@ -61,7 +61,7 @@ function Block({ title, hint, detail, wide = false, clickOnly = false, children 
   detail?: ReactNode
   /**
    * 宽浮层（22rem；默认 15rem）。给「本月流量」那张的节点明细用：一行要放
-   * 「旗子 + 名字 + 今日上下行」，下面还要放两枚带时刻的峰值，15rem 会挤成三条。
+   * 「旗子 + 名字 + 本月上下行」，下面还要放两枚带时刻的峰值，15rem 会挤成三条。
    */
   wide?: boolean
   /** Expensive details should load only after an explicit click, not a passing hover. */
@@ -457,8 +457,8 @@ export function SummaryCards({ nodes, group, finance = false, searching = false,
         {/* CFSM exposes monthly counters in /api/servers. Historical peaks load only after the visitor opens the popup. */}
         <Block title="本月流量" wide clickOnly detail={<TrafficDetail nodes={nodes} />}>
           <div className="mt-1 grid grid-cols-2 gap-x-2 text-2xl font-semibold tracking-tight">
-            <Val icon={ArrowDown}><Unit>{bytes(fleet.dayRx)}</Unit></Val>
-            <Val icon={ArrowUp}><Unit>{bytes(fleet.dayTx)}</Unit></Val>
+            <Val icon={ArrowDown}><Unit>{bytes(fleet.monthRx)}</Unit></Val>
+            <Val icon={ArrowUp}><Unit>{bytes(fleet.monthTx)}</Unit></Val>
           </div>
           <Foot>本月下行 / 上行累计</Foot>
         </Block>
