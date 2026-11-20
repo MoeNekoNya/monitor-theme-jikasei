@@ -18,7 +18,7 @@ const round = (n: number | null) => (n === null ? null : Math.round(n * 100) / 1
 
 function node(over: Partial<Node> = {}): Node {
   return {
-    id: 1, name: "节点1", sort: 1, public: true, online: true, country: "", group: "",
+    id: 1, cfsmId: "1", name: "节点1", sort: 1, public: true, online: true, country: "", group: "",
     last_seen: 0, metrics: null, os: "", kernel: "", arch: "", virt: "", cpu_name: "",
     cpu_cores: 0, mem_total: 0, swap_total: 0, disk_total: 0, agent_version: "",
     price: 0, currency: "CNY", billing_cycle: "monthly", expires_at: null, expires_in: null,
