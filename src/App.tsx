@@ -310,7 +310,7 @@ export default function App() {
     setCursor(null)
   }, [])
   const [open, go] = useNodeRoute(onPop)
-  const { nodes, detailNode, error, closed, siteConfig } = useNodes(open)
+  const { nodes, detailNode, error, closed, stats } = useNodes(open)
   // 访客自己的两个偏好（都只存在他自己浏览器里，见 @/lib/theme-config）：
   // 地球看不看，以及列表用哪种卡片形态 —— 后者没选过时跟着站长的设置走。
   // ★ 站长那档是「节点地球」的**闸门**：他关掉时 `globeOn` 一律是 false，顶栏那枚开关也一起
@@ -693,7 +693,7 @@ export default function App() {
           <>
             {/* 概览卡片行：设置里没选它时整个不挂载（不是藏起来），首屏与没有这个功能时一致。
                 「月度预算剩余价值版」只是同一行换一副面孔，组件另收一个 finance 开关。 */}
-            {hasSummary(config.listTop) && <SummaryCards nodes={found.shown} group={view.current} finance={isBudgetLayout(config.listTop)} searching={found.active} />}
+            {hasSummary(config.listTop) && <SummaryCards nodes={found.shown} group={view.current} finance={isBudgetLayout(config.listTop)} searching={found.active} stats={stats || undefined} />}
             {/* 节点地球：概览卡片之下、列表之上（上游就是这个次序）。 */}
             {globeOn && (
               <Globe nodes={view.shown} dark={dark} region={regions.current} onRegion={setRegion} onOpen={openNode} onWarm={warmDetail} />
