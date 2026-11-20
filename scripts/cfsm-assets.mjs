@@ -1,18 +1,9 @@
 import fs from "node:fs";
-import path from "node:path";
 
-const publicDir="public";
-const assetDir=path.join("dist","assets");
-fs.mkdirSync(assetDir,{recursive:true});
-const flags=path.join(publicDir,"flags");
-if(!fs.existsSync(flags))throw new Error("public/flags missing");
-fs.cpSync(flags,path.join(assetDir,"flags"),{recursive:true});
-for(const name of ["favicon.svg","apple-touch-icon.png","favicon.ico"]){
- const src=path.join(publicDir,name);
- if(fs.existsSync(src))fs.copyFileSync(src,path.join(assetDir,name));
-}
+if (!fs.existsSync("dist/index.html")) throw new Error("dist/index.html missing");
+if (!fs.existsSync("dist/assets")) throw new Error("dist/assets missing");
 const top=fs.readdirSync("dist").sort();
-if(JSON.stringify(top)!==JSON.stringify(["assets","index.html"])) {
- throw new Error("CFSM dist must contain only assets/ and index.html: "+top.join(", "));
+if (JSON.stringify(top)!==JSON.stringify(["assets","index.html"])) {
+  throw new Error("CFSM dist must contain only assets/ and index.html: "+top.join(", "));
 }
-console.log("✓ CFSM static assets packaged under dist/assets");
+console.log("✓ CFSM theme output contains only index.html and assets/");
