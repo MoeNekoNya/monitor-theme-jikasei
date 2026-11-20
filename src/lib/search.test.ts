@@ -15,7 +15,7 @@ function eq(got: unknown, want: unknown, what: string) {
 
 function node(id: number, name: string, over: Partial<Node> = {}): Node {
   return {
-    id, name, sort: id, public: true, online: true, country: "", group: "",
+    id, cfsmId: String(id), name, sort: id, public: true, online: true, country: "", group: "",
     last_seen: 0, metrics: null, os: "", kernel: "", arch: "", virt: "", cpu_name: "",
     cpu_cores: 0, mem_total: 0, swap_total: 0, disk_total: 0, agent_version: "",
     price: 0, currency: "", billing_cycle: "", expires_at: null, traffic_limit: 0,
