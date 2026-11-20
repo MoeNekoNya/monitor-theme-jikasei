@@ -225,8 +225,6 @@ export function NodeDetail({ node, embedded = false, onOpenDetail, historyDays, 
     //
     // The tab determines which half is requested; the other accounted for a third
     // to two thirds of every response and was never drawn.
-    const points = Math.round(globalThis.innerWidth * (globalThis.devicePixelRatio || 1))
-    const series = tab === "latency" ? "ping" : "metrics"
     api<Array<Record<string, any>>>(
       "/history/all?id=" + encodeURIComponent(node.cfsmId) + "&hours=" + hours,
     )
@@ -435,7 +433,7 @@ export function NodeDetail({ node, embedded = false, onOpenDetail, historyDays, 
           value={node.cpu_name ? `${cpuName(node.cpu_name)} × ${node.cpu_cores}` : `${node.cpu_cores} 核`}
         />
         <Fact label="内存 / 硬盘" value={`${bytes(node.mem_total)} / ${bytes(node.disk_total)}`} />
-        <Fact label="今日流量" value={`↓ ${bytes(node.day_rx)} · ↑ ${bytes(node.day_tx)}`} />
+        <Fact label="本月流量" value={`↓ ${bytes(node.day_rx)} · ↑ ${bytes(node.day_tx)}`} />
         {/* 第三行收尾三格：在线时间 → 价格 → 到期。
             「在线时间」取代原先标题行上那枚状态徽章；「价格」「到期」是 2026-10-30 从
             「经典 / 延迟」两档右上角那枚 ⓘ 浮层搬来的（浮层撤掉之后它们只剩这一处），
