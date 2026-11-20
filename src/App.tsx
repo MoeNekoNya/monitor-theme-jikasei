@@ -1,20 +1,18 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react"
-import { Globe as GlobeIcon, Moon, Sun, Wrench } from "lucide-react"
+import { Moon, Sun, Wrench } from "lucide-react"
 
 import { CardStyleMenu } from "@/components/CardStyleMenu"
 import { NodeCard } from "@/components/NodeCard"
 import { CompactList } from "@/components/CompactList"
 import { WideCard } from "@/components/WideCard"
-import { Globe } from "@/components/Globe"
 import { SearchBox, SearchRow } from "@/components/SearchBox"
 import { SummaryCards } from "@/components/Summary"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getSiteConfig, groupView, hasJwtToken, useNodes } from "@/lib/api"
-import { regionView } from "@/lib/globe"
 import { hasDetailRemarks } from "@/lib/notes"
 import { searchNodes } from "@/lib/search"
-import { hasGroupTabs, hasSummary, isBudgetLayout, useCardStyle, useGlobeVisible, useThemeConfig } from "@/lib/theme-config"
+import { hasGroupTabs, hasSummary, isBudgetLayout, useCardStyle, useThemeConfig } from "@/lib/theme-config"
 import { isBeijingNight, resolveDark, type ThemeMode } from "@/lib/site-settings"
 import type { RemarkPlacement } from "@/lib/site-settings"
 import { FarmIcon } from "@/components/FarmIcon"
@@ -134,20 +132,19 @@ function DetailSkeleton({ hasRemarks = false, hasConnections = false, hasPrice =
 //   刷新、收藏、分享都带着当时的筛选；详情页的地址同样带着它们（外加 `?tab=latency`），
 //   于是「后退 / 前进」在列表与详情之间来回时，每一屏连筛选一起复原——URL 是状态的唯一来源，
 //   内存只是它的一份镜像。只带**有值**的项：清掉筛选就回到干净的 `/`。
-type ListState = { group: string | null; region: string | null; q: string }
+type ListState = { group: string | null; q: string }
 
 /** 从地址栏读筛选三件套（首次加载与 popstate 各读一次）。 */
 function readListState(): ListState {
   const route = new URL(location.hash.slice(1) || "/", location.origin)
   const p = route.searchParams
-  return { group: p.get("group"), region: p.get("region"), q: p.get("q") ?? "" }
+  return { group: p.get("group"), q: p.get("q") ?? "" }
 }
 
 /** 列表 / 详情共用的地址串：有值才带；详情页可选再带 `?tab=`。 */
 function pageUrl(id: string | null, tab: string | null, s: ListState): string {
   const p = new URLSearchParams()
   if (s.group !== null) p.set("group", s.group)
-  if (s.region !== null) p.set("region", s.region)
   if (s.q.trim() !== "") p.set("q", s.q)
   if (id !== null && tab) p.set("tab", tab)
   const qs = p.toString()
@@ -297,8 +294,6 @@ export default function App() {
   // 筛选三件套（分组 / 地区 / 搜索词）：**初始值从地址栏读**（刷新、收藏、别人分享的链接
   // 都因此带着筛选进来），之后变化再写回去（见下面的 replaceState 那段）。
   const [group, setGroup] = useState<string | null>(() => readListState().group)
-  // 地球侧栏里选中的地区：同理留在这儿，进详情页再回来不丢。
-  const [region, setRegion] = useState<string | null>(() => readListState().region)
   // 顶栏那个搜索框：词与「窄屏那一行展开了没」都留在这儿 —— 进详情页再回来，搜到的那几台还在。
   const [query, setQuery] = useState(() => readListState().q)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -308,17 +303,12 @@ export default function App() {
   // popstate（后退/前进）时把筛选三件套从地址栏恢复 —— 与详情 id 同一趟同步。
   const onPop = useCallback((s: ListState) => {
     setGroup(s.group)
-    setRegion(s.region)
     setQuery(s.q)
     setCursor(null)
   }, [])
   const [open, go] = useNodeRoute(onPop)
   const { nodes, detailNode, error, closed, stats } = useNodes(open)
-  // 访客自己的两个偏好（都只存在他自己浏览器里，见 @/lib/theme-config）：
-  // 地球看不看，以及列表用哪种卡片形态 —— 后者没选过时跟着站长的设置走。
-  // ★ 站长那档是「节点地球」的**闸门**：他关掉时 `globeOn` 一律是 false，顶栏那枚开关也一起
-  //   不挂（见下面那段渲染条件）——关掉的整块不该在页面上留一枚点了没落点的按钮。
-  const [globeOn, toggleGlobe] = useGlobeVisible(config.globeOn)
+  // 访客自己挑列表用哪种卡片形态；没选过时跟着站长的默认设置走。
   const [cardStyle, chooseStyle] = useCardStyle(config.cardStyle)
 
   // 整页容器宽：**所有六档共用一条列线**（顶栏 / 主区 / 页脚三处同一个 max-w）。
@@ -447,21 +437,12 @@ export default function App() {
   // 分组筛选只求值一次（@/lib/api 的 groupView）：概览卡片与下面的列表吃的是同一份
   // 「该显示哪几台」，切分组时两边一起变——参考站的内置 default 主题就是这个口径。
   const view = groupView(sorted, group, hasGroupTabs(config.listTop))
-  // 地区筛选叠在分组之上，两层是同一套「该显示哪几台」的延续：
-  //   · 地球与右侧那列地区吃的是**当前分组**（`view.shown`）—— 与概览卡片同一口径，
-  //     切分组时地球上的针与地区台数一起变；
-  //   · 下面的列表再按地区收窄一层（`listView`）。
-  // 这样「上头写着 JP 4 台、下面只剩 2 张卡片」不会出现：地球是分组的地图，不是列表的地图。
-  const regions = regionView(view.shown, region)
-  // 再叠一层搜索（口径见 @/lib/search）：这一层与地区筛选同一套——**下面那张列表与上面
-  // 那行概览卡片一起收窄**，地球仍然是「分组的地图」（它画的是分组里有哪些地方，
-  // 不是搜索结果热力图；地区列表点一行照样能把列表收窄到那个地区）。
-  const found = searchNodes(regions.shown, query)
+  // 搜索只作用于当前分组，不再叠加地图地区筛选。
+  const found = searchNodes(view.shown, query)
   const listView = { ...view, shown: found.shown }
   // 归一化后的当前筛选（地址栏更新与进详情都读它）。提成局部值再用：effect 的依赖数组里
   // 直接写 `view.current` 会踩 exhaustive-deps（规则只认对象，而对象每渲染都是新的）。
   const groupNow = view.current
-  const regionNow = regions.current
 
   /**
    * 筛选变了就把地址栏跟手更新（`replaceState`）。
@@ -475,7 +456,7 @@ export default function App() {
    */
   useEffect(() => {
     if (open !== null) return
-    const url = pageUrl(null, null, { group: groupNow, region: regionNow, q: query })
+    const url = pageUrl(null, null, { group: groupNow, q: query })
     // ★2026-11-06：每敲一个字写一次地址栏，Safari 有 100 次 / 30 秒 的硬限制（超了抛
     //   SecurityError，异常发生在 effect 里会把整棵树卸载 = 白屏），输入法组字期间更密。
     //   改成 200ms 防抖，并且写不进也不算错 —— 地址栏是「分享/刷新能复原」的便利，不是页面本体。
@@ -487,7 +468,7 @@ export default function App() {
       }
     }, 200)
     return () => window.clearTimeout(timer)
-  }, [open, groupNow, regionNow, query])
+  }, [open, groupNow, query])
 
   /**
    * 进详情 / 回列表都走这里，把**当前筛选**一并写进地址（刷新或分享详情链接时，列表那一屏
@@ -496,10 +477,10 @@ export default function App() {
   const openNode = (id: number, tab: "latency" | null = null) => {
     const node = sorted.find((item) => item.id === id)
     if (!node) return
-    go(node.cfsmId, pageUrl(node.cfsmId, tab, { group: groupNow, region: regionNow, q: query }))
+    go(node.cfsmId, pageUrl(node.cfsmId, tab, { group: groupNow, q: query }))
   }
   const openList = () => {
-    go(null, pageUrl(null, null, { group: groupNow, region: regionNow, q: query }))
+    go(null, pageUrl(null, null, { group: groupNow, q: query }))
   }
 
   // 搜索键盘导航（↑↓ 选、Enter 开）：下标是「命中列表里的第几台」，不变式与清零时机见 cursor 的声明处。
@@ -610,29 +591,6 @@ export default function App() {
           {open === null && (
             <CardStyleMenu value={cardStyle} siteDefault={config.cardStyle} onPick={chooseStyle} />
           )}
-          {/* 地球开关：只长在列表页 —— 地球就在那一页的顶上，站在某台机器页里按它没有落点。
-              ★ 站长在「主题设置 → 节点地球」里关掉时**整枚按钮都不挂**（不是藏起来／不是禁用）：
-              那一块功能是关着的，留着按钮就成了一件点了什么也不开的摆设（访客会以为「点不动」）。
-              与农场入口、主题开关同规格（图标 + 悬停提示，不带文字，与顶栏其他图标一致）。 */}
-          {open === null && config.globeOn && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="globe-toggle"
-              aria-pressed={globeOn}
-              onClick={() => {
-                // ★关掉地球时**顺手把地区筛选清掉**：地区那列长在地球里，地球一藏，
-                // 「怎么取消」就没地方点了（列表会一直只剩那个地区的机器，看着像站点坏了）。
-                // 反过来说，地区筛选本来就属于那张地图，地图收起来它就该跟着走。
-                if (globeOn) setRegion(null)
-                toggleGlobe()
-              }}
-              title={globeOn ? "隐藏节点地球" : "显示节点地球"}
-              aria-label={globeOn ? "隐藏节点地球" : "显示节点地球"}
-            >
-              <GlobeIcon />
-            </Button>
-          )}
           {/* 入口图标：本站 `/chicken/` 上真装了那座小鸡农场才出现（自动探测，见 useLocalFarm）；
               同域，就在当前标签页里打开。 */}
           {farmUrl && (
@@ -698,10 +656,6 @@ export default function App() {
             {/* 概览卡片行：设置里没选它时整个不挂载（不是藏起来），首屏与没有这个功能时一致。
                 「月度预算剩余价值版」只是同一行换一副面孔，组件另收一个 finance 开关。 */}
             {hasSummary(config.listTop) && <SummaryCards nodes={found.shown} group={view.current} finance={isBudgetLayout(config.listTop)} searching={found.active} stats={stats || undefined} />}
-            {/* 节点地球：概览卡片之下、列表之上（上游就是这个次序）。 */}
-            {globeOn && (
-              <Globe nodes={view.shown} dark={dark} region={regions.current} onRegion={setRegion} onOpen={openNode} onWarm={warmDetail} />
-            )}
             {/* 一台都剩不下时说清楚是谁把它筛没的，并指回去哪儿取消 —— 否则访客只看到
                 一大片空白，会以为站点坏了。搜索那一层排在前面：它是最后叠上去、也是访客
                 刚刚动手的那一层（文案写「当前筛选下」，地区那层也在时同样成立）。 */}
@@ -709,10 +663,6 @@ export default function App() {
               <p className="text-sm text-muted-foreground">
                 当前筛选下没有匹配「{found.query.trim()}」的节点 —— 名称、地区、系统三处都能搜
                 （多个词用空格隔开，要同时命中）；点搜索框里那枚 × 清掉。
-              </p>
-            ) : globeOn && regions.shown.length === 0 && view.shown.length > 0 ? (
-              <p className="text-sm text-muted-foreground">
-                这个地区里当前没有节点 —— 点上面那一列的「全部」取消筛选。
               </p>
             ) : null}
             <NodeList view={listView} group={group} onGroup={setGroup} onOpen={openNode} onWarm={warmDetail}
