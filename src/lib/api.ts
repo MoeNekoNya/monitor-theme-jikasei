@@ -335,8 +335,10 @@ export function safeNodes(nodes:Node[]):Node[] {
     const m=node.metrics;if(!m)return node
     const valid=required.every(key=>nonnegative(m[key]))&&Array.isArray(m.load)&&m.load.length===3&&m.load.every(nonnegative)
     if(!valid)return{...node,metrics:null}
+    const optional=["tcp","udp","procs"] as const
+    if(optional.every((key)=>typeof m[key]==="number"&&Number.isFinite(m[key])))return node
     const copy={...m}
-    for(const key of ["tcp","udp","procs"] as const)if(!nonnegative(copy[key]))copy[key]=null
+    for(const key of optional)if(!nonnegative(copy[key]))copy[key]=null
     return {...node,metrics:copy}
   })
 }
