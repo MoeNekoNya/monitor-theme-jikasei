@@ -10,7 +10,7 @@ import { SearchBox, SearchRow } from "@/components/SearchBox"
 import { SummaryCards } from "@/components/Summary"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { getSiteConfig, groupView, useNodes } from "@/lib/api"
+import { getSiteConfig, groupView, hasJwtToken, useNodes } from "@/lib/api"
 import { regionView } from "@/lib/globe"
 import { hasDetailRemarks } from "@/lib/notes"
 import { searchNodes } from "@/lib/search"
@@ -359,7 +359,7 @@ export default function App() {
     return getSiteConfig()
       .then((config) => {
         const next: Me = {
-          authed: config.authorization === true,
+          authed: hasJwtToken(),
           github: false,
           site_name: config.site_title || "Monitor",
           public_page: config.is_public === true,
