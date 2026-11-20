@@ -103,10 +103,6 @@ function apiBase():string {
   try{return first?new URL(first,location.href).origin:location.origin}catch{return location.origin}
 }
 function verifiedKey():string{return VERIFIED_KEY_PREFIX+apiBase()}
-function normalizePath(path:string):string {
-  const url=new URL(path.startsWith("/api/")?path.slice(4):path,apiBase())
-  return url.pathname
-}
 function assertAllowed(path:string,method:string):URL {
   const url=new URL(path.startsWith("/api/")?path.slice(4):path,apiBase())
   const allowed=method==="GET"?GET_ALLOW:method==="POST"?POST_ALLOW:new Set<string>()
@@ -403,7 +399,7 @@ type SocketMode={scope:string;ids:string[]}
 function openManagedSocket(mode:SocketMode,cfg:CfsmConfig,onUpdates:(updates:CfsmUpdate[])=>void,onFail:(status:string)=>void):()=>void {
   let socket:WebSocket|null=null,stopped=false,retry:ReturnType<typeof setTimeout>|null=null
   let timeout:ReturnType<typeof setTimeout>|null=null,watchdog:ReturnType<typeof setTimeout>|null=null
-  let attempts=0,openedAt=0
+  let attempts=0
   const clear=()=>{if(retry)clearTimeout(retry);if(timeout)clearTimeout(timeout);if(watchdog)clearTimeout(watchdog);retry=null;timeout=null;watchdog=null}
   const closeCurrent=()=>{const old=socket;socket=null;if(old){old.onopen=old.onmessage=old.onerror=old.onclose=null;try{old.close(1000,"theme reconnect")}catch{/* already closed */}}}
   const reconnect=()=>{
@@ -427,7 +423,7 @@ function openManagedSocket(mode:SocketMode,cfg:CfsmConfig,onUpdates:(updates:Cfs
     socket=ws;wsStatus("connecting")
     ws.onopen=()=>{
       if(socket!==ws)return
-      openedAt=Date.now();wsStatus("connected")
+      wsStatus("connected")
       if(mode.scope==="all")ws.send(JSON.stringify({type:"subscribe",scope:"all",ids:mode.ids}))
       const minutes=number(cfg.frontend_ws_timeout_minutes)
       if(minutes>0)timeout=setTimeout(()=>{
@@ -443,7 +439,7 @@ function openManagedSocket(mode:SocketMode,cfg:CfsmConfig,onUpdates:(updates:Cfs
       try{
         const msg=JSON.parse(String(event.data))
         if(msg.type==="batchUpdate"&&Array.isArray(msg.updates))onUpdates(msg.updates)
-        if(msg.type==="hello"||msg.type==="subscribed")attempts=0
+        if(msg.type==="batchUpdate")attempts=0
         armWatchdog(ws)
       }catch{/* malformed frame ignored */}
     }
@@ -468,10 +464,6 @@ export function useNodes(activeId:string|null=null) {
   activeIdRef.current=activeId
   const listReady=nodes!==null
 
-  const refreshListState=(map:Map<string,CfsmServer>)=>{
-    const mapped=safeNodes([...map.values()].sort((a,b)=>number(a.sort_order)-number(b.sort_order)).map(row=>toNode(row,sysConfig)))
-    sample(mapped);setNodes(mapped)
-  }
   const applyUpdates=(items:QueueItem[])=>{
     let changed=false
     for(const item of items){
@@ -527,7 +519,6 @@ export function useNodes(activeId:string|null=null) {
 
   useEffect(()=>{
     if(!siteConfig)return
-    const ids=[...raw.current.keys()]
     if(activeId===null&&!loaded.current)return
     if(activeId!==null&&!activeId)return
     const mode:SocketMode=activeId===null?{scope:"all",ids}:{scope:activeId,ids:[]}
