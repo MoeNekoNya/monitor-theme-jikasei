@@ -121,23 +121,6 @@ export type { ThemeConfig } from "@/lib/site-settings"
  * 代价是没装小鸡农场的站每次加载多一次请求（落回 index.html，约 1KB）；装了的那次拿到的
  * 就是它自己的节点列表。
  */
-export function useLocalFarm(): string {
-  const [found, setFound] = useState(false)
-  useEffect(() => {
-    let alive = true
-    fetch("/chicken/api/nodes", { headers: { Accept: "application/json" } })
-      .then((res) => res.json())
-      .then((data) => {
-        if (alive && data && Array.isArray(data.nodes)) setFound(true)
-      })
-      .catch(() => {
-        // 没装、或装了但那台没回 JSON：都不显示入口，不报错、不占位。
-      })
-    return () => { alive = false }
-  }, [])
-  return found ? "/chicken/" : ""
-}
-
 /**
  * 读回本站的设置。任何失败都回落默认值：后台没存过（Hub 回 `{}`）、旧 hub 没这个接口、
  * 反代拦了——都不该让公开页白屏或缺一块。收窄与迁移见 `normalizeConfig`。
