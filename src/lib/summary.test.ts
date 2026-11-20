@@ -23,7 +23,7 @@ function node(id: number, over: Partial<Node> = {}): Node {
     cpu_cores: 0, mem_total: 0, swap_total: 0, disk_total: 0, agent_version: "",
     price: 0, currency: "", billing_cycle: "", expires_at: null, traffic_limit: 0,
     traffic_mode: "sum", traffic_reset_day: 1, total_rx: 0, total_tx: 0,
-    month_rx: 0, month_tx: 0, month_start: "", day_rx: 0, day_tx: 0,
+    month_rx: 0, month_tx: 0, month_start: "", month_rx: 0, month_tx: 0,
     ...over,
   }
 }
@@ -35,7 +35,7 @@ const metrics = (over: Partial<NonNullable<Node["metrics"]>> = {}) => ({
 })
 
 const empty: Fleet = {
-  total: 0, online: 0, offline: 0, dayRx: 0, dayTx: 0, totalRx: 0, totalTx: 0,
+  total: 0, online: 0, offline: 0, monthRx: 0, monthTx: 0, totalRx: 0, totalTx: 0,
   netRx: 0, netTx: 0, busiest: null,
 }
 
@@ -45,12 +45,12 @@ eq(summarize([]), empty, "空列表")
 // 三台：①在线带指标 ②在线但还没上报（metrics 空）③掉线带累计流量。
 // 速率只算①；累计流量三台都算（hub 保留掉线机器的总量）。
 const fleet = summarize([
-  node(1, { online: true, day_rx: GB, day_tx: GB / 2, total_rx: 2 * TB, total_tx: 4 * TB, metrics: metrics({ cpu: 12.5, net_rx: 512 * 1024, net_tx: 128 * 1024 }) }),
+  node(1, { online: true, month_rx: GB, month_tx: GB / 2, total_rx: 2 * TB, total_tx: 4 * TB, metrics: metrics({ cpu: 12.5, net_rx: 512 * 1024, net_tx: 128 * 1024 }) }),
   node(2, { online: true, metrics: null }),
   node(3, { online: false, total_rx: TB, total_tx: TB, metrics: metrics({ cpu: 99, net_rx: 5 * 1024, net_tx: 5 * 1024 }) }),
 ])
 eq([fleet.total, fleet.online], [3, 2], "总数 / 在线数")
-eq([fleet.dayRx, fleet.dayTx], [GB, GB / 2], "今日流量只加 day_rx/day_tx")
+eq([fleet.monthRx, fleet.monthTx], [GB, GB / 2], "本月流量只加 month_rx/month_tx")
 eq([fleet.totalRx, fleet.totalTx], [3 * TB, 5 * TB], "累计流量含掉线机器")
 eq([fleet.netRx, fleet.netTx], [512 * 1024, 128 * 1024], "速率只算在线且有指标的节点")
 eq(fleet.busiest, { name: "节点1", cpu: 12.5 }, "最忙节点：掉线的 99% 不参选")
@@ -66,9 +66,9 @@ eq(tied.busiest, { name: "节点1", cpu: 30 }, "最忙节点并列时取先出�
 const silent = summarize([node(1, { online: true, metrics: null })])
 eq([silent.busiest, silent.netRx, silent.online], [null, 0, 1], "在线无指标时报不出最忙节点")
 
-// 老 hub 少了 day_rx/day_tx：缺的按 0 算，不能让合计变成 NaN。
-const legacy = { ...node(1, { total_rx: TB }), day_rx: undefined, day_tx: undefined } as unknown as Node
-eq(summarize([legacy]).dayRx, 0, "缺 day_rx 的老 hub 按 0 算（不是 NaN）")
+// 老 hub 少了 month_rx/month_tx：缺的按 0 算，不能让合计变成 NaN。
+const legacy = { ...node(1, { total_rx: TB }), month_rx: undefined, month_tx: undefined } as unknown as Node
+eq(summarize([legacy]).monthRx, 0, "缺 month_rx 的老 hub 按 0 算（不是 NaN）")
 
 if (failed) {
   console.error(`\n${failed} 处不符`)
