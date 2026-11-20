@@ -206,6 +206,7 @@ export async function getSiteConfig():Promise<CfsmConfig> {
   }).catch(error=>{siteConfigPromise=null;throw error})
   return siteConfigPromise
 }
+export function hasJwtToken():boolean {return Boolean(safeStorageGet(JWT_KEY))}
 export function updateSiteConfigCache(config:CfsmConfig):void {siteConfigCache={...(siteConfigCache||{}),...config}}
 export async function api<T>(path:string,init?:RequestInit):Promise<T> {
   const clean=path.startsWith("/api/")?path.slice(4):path
@@ -484,7 +485,7 @@ export function useNodes(activeId:string|null=null) {
     getSiteConfig().then(config=>{
       if(!alive)return
       setSiteConfig(config)
-      if(config.is_public===false&&!config.authorization&&!safeStorageGet(JWT_KEY)){
+      if(config.is_public!==true&&!safeStorageGet(JWT_KEY)){
         setClosed(true);location.assign("/admin#/admin")
       }
     }).catch(e=>{if(alive)setError(e.message||"无法读取站点配置")})
