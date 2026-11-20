@@ -1,63 +1,78 @@
-name: Deploy static theme
+name: Build CFSM theme and publish dist
 
 on:
   push:
-    branches: [main, master]
+    branches: [master]
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: deploy-dist
+  group: publish-dist
   cancel-in-progress: false
 
 jobs:
-  build-and-deploy:
+  build-and-publish:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: Setup Node
-        uses: actions/setup-node@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
         with:
           node-version: 24
+          cache: npm
+
       - name: Install dependencies
-        run: npm install
-      - name: Lint, test and build
-        env:
-          TITLE: ${{ secrets.TITLE }}
-          BACKGROUND_IMAGE: ${{ secrets.BACKGROUND_IMAGE }}
-          CSP_API: ${{ secrets.CSP_API }}
-          CSP_STATIC: ${{ secrets.CSP_STATIC }}
+        run: npm ci
+
+      - name: Run lint and tests
         run: |
           npm run lint
           npm test
-          npm run build
-      - name: Preserve dist history and publish
-        env:
-          GH_TOKEN: ${{ github.token }}
+          npm run check
+
+      - name: Build static theme
+        run: npm run build
+
+      - name: Validate CFSM static package
         run: |
-          git log -1 --format=%B > /tmp/source-commit-message.txt
-          git fetch origin dist || true
-          if git show-ref --verify --quiet refs/remotes/origin/dist; then
-            git worktree add /tmp/theme-dist origin/dist
-          else
-            mkdir -p /tmp/theme-dist
-            cd /tmp/theme-dist
-            git init
-            git checkout --orphan dist
-          fi
-          rsync -a --delete --exclude=.git "${GITHUB_WORKSPACE}/dist/" /tmp/theme-dist/
-          cd /tmp/theme-dist
+          test -f dist/index.html
+          test -d dist/assets
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const top=fs.readdirSync('dist').sort();
+          if (JSON.stringify(top)!==JSON.stringify(['assets','index.html'])) {
+            throw new Error('dist 顶层必须且只能包含 assets/ 与 index.html：'+top.join(', '));
+          }
+          const html=fs.readFileSync('dist/index.html','utf8');
+          if (!html.includes('type="module"') || !html.includes('./assets/')) {
+            throw new Error('构建结果不是相对路径静态 SPA');
+          }
+          NODE
+          tar -czf /tmp/cfsm-theme-dist.tar.gz -C dist .
+
+      - name: Publish to dist branch, preserving branch history
+        env:
+          SOURCE_MESSAGE: ${{ github.event.head_commit.message || github.sha }}
+        run: |
+          git fetch origin dist
+          git checkout -B dist origin/dist
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          tar -xzf /tmp/cfsm-theme-dist.tar.gz -C .
+          test -f index.html
+          test -d assets
+          test "$(find . -mindepth 1 -maxdepth 1 | wc -l)" -eq 2
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           if git diff --cached --quiet; then
-            echo "No dist changes to publish."
+            echo "dist 已是最新，无需提交"
             exit 0
           fi
-          git commit -F /tmp/source-commit-message.txt
-          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:dist
+          git commit -m "$SOURCE_MESSAGE"
+          git push origin dist
