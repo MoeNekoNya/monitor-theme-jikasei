@@ -39,8 +39,8 @@ console.log(`设置项默认值一致：${fields.map((f) => `${f.key}=${f.defaul
 // 站名缓存键由 App 与 index.html 的首屏脚本共用，不再使用旧版 /api/me title probe。
 const CACHES = [
   { what: '站名', key: 'jikasei:site_name', places: [
-    ['src/App.tsx', /TITLE_CACHE_KEY\\s*=\\s*"([^"]+)"/g],
-    ['index.html', /localStorage\\.getItem\\("(jikasei:[^"]+)"\\)/g],
+    ['src/App.tsx', /TITLE_CACHE_KEY\s*=\s*"([^"]+)"/g],
+    ['index.html', /localStorage\.getItem\("(jikasei:[^"]+)"\)/g],
   ] },
 // 明暗这一档同源两处：App 的 useTheme 读 / 写 / 删，index.html 的首帧脚本事先读一次。
   { what: '明暗', key: 'theme', places: [
