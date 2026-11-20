@@ -2,7 +2,7 @@
   "name": "jikasei",
   "short": "jikasei",
   "description": "自家制的极简探针（CF-Server-Monitor）第三方主题：六种卡片形态、分组筛选、明暗双色。",
-  "version": "1.36.3",
+  "version": "1.36.4",
   "author": "akanotanin",
   "url": "https://github.com/akanotanin/monitor-theme-jikasei",
   "config": [
@@ -41,7 +41,7 @@
           "label": "两个都显示·概览卡片价值版"
         }
       ],
-      "help": "分组标签行与概览卡片行各要哪一档；概览卡片分原版与价值版两种排法；「今日流量」那张卡悬停可摊出每台节点今天的流量与采样峰值。"
+      "help": "分组标签行与概览卡片行各要哪一档；概览卡片分原版与价值版；本月流量卡点开可查看各节点本月用量及今日网速峰值。总流量、实时网速独立显示。"
     },
     {
       "type": "select",
