@@ -184,6 +184,13 @@ eq(cpuName("Intel(R) Xeon(R) CPU E5-2680 8-Core Processor"), "Intel Xeon E5-2680
 // 卡片底注是在 CYCLES 的键上现查短写法的，缺一个键时同一台机器在详情页与卡片上就会一个写
 // 「月付」、一个印出「价格 ¥x/」这种断尾。
 eq(CYCLE_SHORT.monthly, "月", "月付短写法")
+eq(cycleName("month"), "月付", "CFSM month 周期名称")
+eq(cycleName("quarter"), "季付", "CFSM quarter 周期名称")
+eq(cycleName("half_year"), "半年付", "CFSM half_year 周期名称")
+eq(cycleName("four_years"), "四年付", "CFSM four_years 周期名称")
+eq(cycleName("five_years"), "五年付", "CFSM five_years 周期名称")
+eq(cycleNameShort("quarter"), "季", "CFSM quarter 周期短写")
+
 eq(CYCLE_SHORT.yearly, "年", "年付短写法")
 eq(CYCLE_SHORT.once, "一次性", "一次性不缩")
 // ★2026-11-06：hub 把非具名整月数存成 `<n>m`（5m / 18m / 60m），认不出来就会被当成月付。
