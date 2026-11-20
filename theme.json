@@ -2,7 +2,7 @@
   "name": "jikasei",
   "short": "jikasei",
   "description": "自家制的极简探针（CF-Server-Monitor）第三方主题：六种卡片形态、分组筛选、明暗双色。",
-  "version": "1.36.2",
+  "version": "1.36.3",
   "author": "akanotanin",
   "url": "https://github.com/akanotanin/monitor-theme-jikasei",
   "config": [
