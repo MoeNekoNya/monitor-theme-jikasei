@@ -3,7 +3,7 @@ import type { Node } from "@/lib/api"
 /**
  * 列表页顶上那行概览卡片要用的合计值。
  *
- * 全部来自 `/api/nodes` 里本来就有的字段——`day_rx`、`total_rx`、`metrics.net_rx`——
+ * 全部来自 `/api/nodes` 里本来就有的字段——`month_rx`、`total_rx`、`metrics.net_rx`——
  * 所以这一行开着也不多发一个请求（唯一的例外是实时网速下面那条走势线，它画的是
  * 访客自己攒下的采样，见 api.ts 的 `speedHistory`）。
  *
@@ -16,9 +16,9 @@ export type Fleet = {
   /** 其中在线的台数。 */
   online: number
   offline: number
-  /** 今日流量：`day_rx` / `day_tx` 之和。 */
-  dayRx: number
-  dayTx: number
+  /** 本月流量：`month_rx` / `month_tx` 之和。 */
+  monthRx: number
+  monthTx: number
   /** 累计流量：`total_rx` / `total_tx` 之和。 */
   totalRx: number
   totalTx: number
@@ -37,8 +37,8 @@ export function summarize(nodes: Node[]): Fleet {
     total: nodes.length,
     online: 0,
     offline: 0,
-    dayRx: 0,
-    dayTx: 0,
+    monthRx: 0,
+    monthTx: 0,
     totalRx: 0,
     totalTx: 0,
     netRx: 0,
@@ -46,10 +46,10 @@ export function summarize(nodes: Node[]): Fleet {
     busiest: null,
   }
   for (const node of nodes) {
-    // `|| 0`：老 hub 没有 day_rx/day_tx 这几个字段，缺一个就整行合计成 NaN，
+    // `|| 0`：老 hub 没有 month_rx/month_tx 这几个字段，缺一个就整行合计成 NaN，
     // 那时候 bytes(NaN) 会把四张卡片一起写成 0 B。
-    fleet.dayRx += node.day_rx || 0
-    fleet.dayTx += node.day_tx || 0
+    fleet.monthRx += node.month_rx || 0
+    fleet.monthTx += node.month_tx || 0
     fleet.totalRx += node.total_rx || 0
     fleet.totalTx += node.total_tx || 0
     if (!node.online) continue
