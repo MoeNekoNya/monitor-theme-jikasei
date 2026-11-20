@@ -9,7 +9,6 @@ import { cardStyleOrNull, DEFAULTS, normalizeConfig, type ThemeConfig } from "@/
  * `config` 现画，两边靠 key 对上；默认值与迁移规则在 `site-settings.ts`（那里能单测），
  * `scripts/check-config.mjs` 在打包前兜底。
  */
-const SHORT = "jikasei"
 
 /**
  * 访客自己的两个偏好：**看不看节点地球**、**列表用哪种卡片形态**。都只存在他自己浏览器里，
