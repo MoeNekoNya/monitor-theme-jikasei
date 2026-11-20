@@ -1,0 +1,64 @@
+name: Deploy static theme
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deploy-dist
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install dependencies
+        run: npm install
+      - name: Lint, test and build
+        env:
+          API_BASE: ${{ secrets.API_BASE }}
+          TITLE: ${{ secrets.TITLE }}
+          BACKGROUND_IMAGE: ${{ secrets.BACKGROUND_IMAGE }}
+          CSP_API: ${{ secrets.CSP_API }}
+          CSP_STATIC: ${{ secrets.CSP_STATIC }}
+        run: |
+          npm run lint
+          npm test
+          npm run build
+      - name: Preserve dist history and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git log -1 --format=%B > /tmp/source-commit-message.txt
+          git fetch origin dist || true
+          if git show-ref --verify --quiet refs/remotes/origin/dist; then
+            git worktree add /tmp/theme-dist origin/dist
+          else
+            mkdir -p /tmp/theme-dist
+            cd /tmp/theme-dist
+            git init
+            git checkout --orphan dist
+          fi
+          rsync -a --delete --exclude=.git "${GITHUB_WORKSPACE}/dist/" /tmp/theme-dist/
+          cd /tmp/theme-dist
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No dist changes to publish."
+            exit 0
+          fi
+          git commit -F /tmp/source-commit-message.txt
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:dist
