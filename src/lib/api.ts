@@ -234,7 +234,7 @@ function parseLoad(value:unknown):[number,number,number] {
 export function parseTrafficLimit(value:unknown):number {
   const text=String(value??"").trim().replace(/,/g,"")
   if(!text)return 0
-  const match=text.match(/^([\\d.]+)\\s*(B|KB|MB|GB|TB|PB)?$/i)
+  const match=text.match(/^([\d.]+)\s*(B|KB|MB|GB|TB|PB)?$/i)
   if(!match)return 0
   // CFSM stores a unitless traffic_limit as GB; explicit units remain supported.
   const unit=(match[2]||"GB").toUpperCase()
