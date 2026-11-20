@@ -358,7 +358,7 @@ function Sparkline({ series }: { series: { rx: number; tx: number }[] }) {
 
 /** 「节点」那块读数：在线 / 总数 + 离线台数。两副面孔共用，块本身一模一样。 */
 function NodesBlock({ fleet, searching = false }: { fleet: Fleet; searching?: boolean }) {
-  const offline = fleet.total - fleet.online
+  const offline = fleet.offline
   return (
     <Block title="节点">
       {/* 斜杠与总数照参考站降一档（16px / 常规字重 / 弱化灰），只有在线数是那个大数。
@@ -389,7 +389,7 @@ function BusiestBlock({ fleet }: { fleet: Fleet }) {
 
 export function SummaryCards({ nodes, group, finance = false, searching = false, stats }: { nodes: Node[]; group: string | null; finance?: boolean; searching?: boolean; stats?: ServerStats }) {
   const computedFleet = summarize(nodes)
-  const fleet = { ...computedFleet, total: stats?.total ?? computedFleet.total, online: stats?.online ?? computedFleet.online }
+  const fleet = { ...computedFleet, total: stats?.total ?? computedFleet.total, online: stats?.online ?? computedFleet.online, offline: stats?.offline ?? computedFleet.offline, netRx: stats?.globalSpeedIn ?? computedFleet.netRx, netTx: stats?.globalSpeedOut ?? computedFleet.netTx, totalRx: stats?.globalNetRx ?? computedFleet.totalRx, totalTx: stats?.globalNetTx ?? computedFleet.totalTx }
   // 每日汇率（lib/fx.ts）：新鲜缓存 ∪ 内置表起步，拉到新的在后台无缝换上——只调一次，
   // 两个数（budget 与 note）共用同一份快照，文案与数字不许说岔。
   const fx = useFx()
