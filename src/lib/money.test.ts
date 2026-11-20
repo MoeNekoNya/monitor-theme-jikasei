@@ -33,6 +33,19 @@ eq([cycleMonthsOf("monthly"), cycleMonthsOf("quarterly"), cycleMonthsOf("semiann
   [1, 3, 6, 12, 24, 36], "周期月数表")
 eq([cycleDaysOf("monthly"), cycleDaysOf("quarterly"), cycleDaysOf("semiannual"), cycleDaysOf("yearly"), cycleDaysOf("biennial"), cycleDaysOf("triennial")],
   [30, 90, 180, 365, 730, 1095], "周期天数表")
+eq(
+  [cycleMonthsOf("month"), cycleMonthsOf("quarter"), cycleMonthsOf("half_year"), cycleMonthsOf("year"), cycleMonthsOf("two_years"), cycleMonthsOf("three_years"), cycleMonthsOf("four_years"), cycleMonthsOf("five_years")],
+  [1, 3, 6, 12, 24, 36, 48, 60],
+  "CFSM 原生 billing_cycle 月数"
+)
+eq(
+  [cycleDaysOf("month"), cycleDaysOf("quarter"), cycleDaysOf("half_year"), cycleDaysOf("year"), cycleDaysOf("two_years"), cycleDaysOf("three_years"), cycleDaysOf("four_years"), cycleDaysOf("five_years")],
+  [30, 90, 180, 365, 730, 1095, 1460, 1825],
+  "CFSM 原生 billing_cycle 天数"
+)
+const quarter = budgetOf([node({ price: 90, currency: "CNY", billing_cycle: "quarter", expires_in: 45 })])
+eq([round(quarter.monthly), round(quarter.remaining)], [30, 45], "CFSM 季付 ¥90：月摊 30、剩余 45 天价值 45")
+
 eq([cycleMonthsOf("once"), cycleMonthsOf(""), cycleMonthsOf("weird")], [0, 1, 1], "一次性 = 0；没写或不认识按月付")
 eq([cycleDaysOf("once"), cycleDaysOf(""), cycleDaysOf("weird")], [0, 30, 30], "同上（天数）")
 // ★2026-11-06：hub 对非具名整月数存成 `<n>m`（monitor 的 cycle_name 只折具名的六个）。
