@@ -15,6 +15,7 @@ export type Fleet = {
   total: number
   /** 其中在线的台数。 */
   online: number
+  offline: number
   /** 今日流量：`day_rx` / `day_tx` 之和。 */
   dayRx: number
   dayTx: number
@@ -35,6 +36,7 @@ export function summarize(nodes: Node[]): Fleet {
   const fleet: Fleet = {
     total: nodes.length,
     online: 0,
+    offline: 0,
     dayRx: 0,
     dayTx: 0,
     totalRx: 0,
@@ -59,5 +61,6 @@ export function summarize(nodes: Node[]): Fleet {
     // 严格大于：并列时留着先出现的那台（列表顺序由站长排，顺序就是他的偏好）。
     if (!fleet.busiest || m.cpu > fleet.busiest.cpu) fleet.busiest = { name: node.name, cpu: m.cpu }
   }
+  fleet.offline = fleet.total - fleet.online
   return fleet
 }
