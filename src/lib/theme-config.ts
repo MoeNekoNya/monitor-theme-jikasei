@@ -24,45 +24,7 @@ import { cardStyleOrNull, DEFAULTS, normalizeConfig, type ThemeConfig } from "@/
  * 那一页都还在；地球是一整块功能。站长在「主题设置 → 节点地球」里关掉 = **这一块关着**
  * （地球不渲染、顶栏那枚开关也不出现，见 `useGlobeVisible` 的注释）。
  */
-const GLOBE_KEY = "jikasei:globe"
 const CARD_STYLE_KEY = "jikasei:card_style"
-
-/**
- * 节点地球看不看：站长在「主题设置 → 节点地球」里那一档是**闸门**，访客的偏好只在闸门开着时
- * 起作用（默认取站长那一档、他自己动过就以他的为准）。
- *
- * ★ 站长关掉（`siteDefault === false`）时一律是关：地球不渲染，**顶栏那枚开关也不出现**
- * （App.tsx 里按 `config.globeOn` 决定挂不挂那枚按钮）——「面板即事实」：关掉的这一块不该
- * 在页面上留一个点得动却什么也不开的按钮，访客存在自己浏览器里的旧偏好也不许把站长关掉的
- * 整块顶回来（老版本存过 `"1"` 的访客就是这么来的：那时站长那档是关的、他自己开过）。
- *
- * 选成与站长相同的那一档时**把记录删掉**（= 重新「跟着站长走」，以后站长改默认他也跟着变）——
- * 与 `useCardStyle` 同一套口径。存储被禁用（隐私模式）时这次会话里照样能开关，只是记不住。
- */
-export function useGlobeVisible(siteDefault: boolean): [boolean, () => void] {
-  const [saved, setSaved] = useState<string | null>(() => {
-    try {
-      return localStorage.getItem(GLOBE_KEY)
-    } catch {
-      return null
-    }
-  })
-  const on = siteDefault && (saved === null || saved !== "0")
-  return [
-    on,
-    () => {
-      const next = !on
-      const record = next === siteDefault ? null : next ? "1" : "0"
-      try {
-        if (record === null) localStorage.removeItem(GLOBE_KEY)
-        else localStorage.setItem(GLOBE_KEY, record)
-      } catch {
-        // 同上：记不住就记不住，界面照常。
-      }
-      setSaved(record)
-    },
-  ] as const
-}
 
 /**
  * 列表用哪种卡片形态。返回的是**最终生效**的那一档与一个选择函数：
