@@ -128,7 +128,7 @@ function DetailSkeleton({ hasRemarks = false, hasConnections = false, hasPrice =
 // leaves the detail view rather than the site. The hub serves index.html for any
 // unknown path, so no server-side route is required.
 //
-// ★ 筛选三件套（分组 / 地区 / 搜索词）也在地址栏里（2026-10-12 起）：`/?group=…&region=…&q=…`。
+// ★ 筛选两件套（分组 / 搜索词）也在地址栏里（2026-10-12 起）：`/#/?group=…&q=…`。
 //   刷新、收藏、分享都带着当时的筛选；详情页的地址同样带着它们（外加 `?tab=latency`），
 //   于是「后退 / 前进」在列表与详情之间来回时，每一屏连筛选一起复原——URL 是状态的唯一来源，
 //   内存只是它的一份镜像。只带**有值**的项：清掉筛选就回到干净的 `/`。
@@ -269,7 +269,7 @@ function useTheme(siteMode: ThemeMode) {
     dark,
     () => {
       const next = dark ? "light" : "dark"
-      // 点成与站长那一档一致时**删掉记录**（= 重新跟着站长走，与 useGlobeVisible 同一套口径）。
+      // 点成与站长那一档一致时**删掉记录**（= 重新跟着站长走）。
       const record = (next === "dark") === fromSite ? null : next
       try {
         if (record === null) localStorage.removeItem("theme")
@@ -447,11 +447,11 @@ export default function App() {
   /**
    * 筛选变了就把地址栏跟手更新（`replaceState`）。
    *
-   * 为什么是 replace 而不是 push：筛选的每一次调整（点分组、点地区、敲一个字）不该往历史里
+   * 为什么是 replace 而不是 push：筛选的每一次调整（点分组、敲一个字）不该往历史里
    * 塞一整条条目 —— 否则「后退」得按十几下才退出这一页。replace 让历史里始终只留
    * 「列表（当时筛选）→ 详情」这种有意义的两跳，后退一步就是干净的回退。
    * 详情页时不写：那时的路径是 `/node/{id}`，筛选要留在它自己的查询串里（见 openNode）。
-   * 值取**归一化后**的 `groupNow / regionNow` —— 悬空的选择（分组解散、地区没了）
+   * 值取**归一化后**的 `groupNow` —— 悬空的分组选择（分组解散）
    * 已经被回落成「全部」，地址栏里就不该还留着那个死值。
    */
   useEffect(() => {
