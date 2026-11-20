@@ -3,8 +3,7 @@ import { ArrowDown, ArrowUp } from "lucide-react"
 
 import { Card } from "@/components/ui/card"
 import { DetailScroll } from "@/components/DetailScroll"
-import { TrafficDetail } from "@/components/TrafficDetail"
-import { speedHistory, type Node } from "@/lib/api"
+import { speedHistory, type Node, type ServerStats } from "@/lib/api"
 import { bytes, rate } from "@/lib/format"
 import { useFx } from "@/lib/fx"
 import { BUDGET_ROWS, budgetOf, cny, fxNote, type BudgetItem } from "@/lib/money"
@@ -13,7 +12,7 @@ import { summarize, type Fleet } from "@/lib/summary"
 /**
  * 列表页顶上那行概览卡片，两副面孔（主题设置的「列表页顶部」里选）：
  *
- *   原版（summary / both）——四张卡片，各一块读数：节点 / 最忙节点 / 今日流量 / 实时网速。
+ *   原版（summary / both）——四张卡片，各一块读数：节点 / 最忙节点 / 本月流量 / 实时网速。
  *   月度预算剩余价值版（budget / bothBudget）——四张卡片，但前两张各排两块读数：
  *     ① 月度预算 + 剩余价值（口径见 lib/money.ts）
  *     ② 节点 + 最忙节点（照参考图：节点挪到原先最忙节点那一侧、最忙节点往右让位，
@@ -60,7 +59,7 @@ function Block({ title, hint, detail, wide = false, children }: {
   /** 给了它可悬停/点开：弹出的浮层内容（口径行由调用方放在 detail 尾巴里）。 */
   detail?: ReactNode
   /**
-   * 宽浮层（22rem；默认 15rem）。给「今日流量」那张的节点明细用：一行要放
+   * 宽浮层（22rem；默认 15rem）。给「本月流量」那张的节点明细用：一行要放
    * 「旗子 + 名字 + 今日上下行」，下面还要放两枚带时刻的峰值，15rem 会挤成三条。
    */
   wide?: boolean
@@ -250,14 +249,14 @@ function Foot({ children }: { children: ReactNode }) {
   return <div className="tnum mt-auto truncate pt-1 text-xs text-muted-foreground">{children}</div>
 }
 
-/** 一张卡片：里面就一块读数（今日流量 / 实时网速，以及原版的每一张）。 */
+/** 一张卡片：里面就一块读数（本月流量 / 实时网速，以及原版的每一张）。 */
 function Tile({ children }: { children: ReactNode }) {
   return <Card className="min-w-0 gap-0 p-4">{children}</Card>
 }
 
 /**
  * 一张卡片里两块读数：**两块平分**（`grid-cols-2` + 同一个 `gap-x-2`），所以两张卡里的第二块
- * 读数落在同一条竖线上，而且与「今日流量 / 实时网速」两张卡里那张两列小栅格的第二列同一落点
+ * 读数落在同一条竖线上，而且与「本月流量 / 实时网速」两张卡里那张两列小栅格的第二列同一落点
  * —— 整行四张卡读起来是一个栅格（站长挑的排法：最素、不要分隔线）。
  *
  * 早先试过 `justify-between`（块宽按内容走）：剩余价值（≈¥191.94）比最忙节点（51.0%）宽，
@@ -303,7 +302,7 @@ function Val({ icon: Icon, children }: {
  * 读数越长、视口越窄越容易中招。三道一起收：单位降一档（省 20px，见下）、
  * `rate()` 的三位有效数字（最长「999 KB/s」71px）、箭头与间距各收一档（省 4px）。
  *
- * 只给上面那行 24px 的大数用（今日流量 / 实时网速）：底部那行小字本来就是 12px，
+ * 只给上面那行 24px 的大数用（本月流量 / 实时网速）：底部那行小字本来就是 12px，
  * 单位再「降档」会比数字还大。空格留在单位前而不是用 `ml-*` 撑间距——否则复制文本
  * 与读屏会把两个词黏成「112.6KB/s」。
  */
@@ -388,8 +387,9 @@ function BusiestBlock({ fleet }: { fleet: Fleet }) {
   )
 }
 
-export function SummaryCards({ nodes, group, finance = false, searching = false }: { nodes: Node[]; group: string | null; finance?: boolean; searching?: boolean }) {
-  const fleet = summarize(nodes)
+export function SummaryCards({ nodes, group, finance = false, searching = false, stats }: { nodes: Node[]; group: string | null; finance?: boolean; searching?: boolean; stats?: ServerStats }) {
+  const computedFleet = summarize(nodes)
+  const fleet = { ...computedFleet, total: stats?.total ?? computedFleet.total, online: stats?.online ?? computedFleet.online }
   // 每日汇率（lib/fx.ts）：新鲜缓存 ∪ 内置表起步，拉到新的在后台无缝换上——只调一次，
   // 两个数（budget 与 note）共用同一份快照，文案与数字不许说岔。
   const fx = useFx()
@@ -412,7 +412,7 @@ export function SummaryCards({ nodes, group, finance = false, searching = false 
 
   return (
     /* 版式照参考站：`sm` 起两列、`lg` 起四列。**手机是一列而不是参考站的两列**——参考站每张
-       卡只有一个大数，两个数并排也放得下；本站的「今日流量 / 实时网速」一张卡里有两个方向，
+       卡只有一个大数，两个数并排也放得下；本站的「本月流量 / 实时网速」一张卡里有两个方向，
        390px 两列时每张卡只有 173px、两个数会各自截断（护栏量过）。 */
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {finance ? (
@@ -451,9 +451,9 @@ export function SummaryCards({ nodes, group, finance = false, searching = false 
       )}
 
       <Tile>
-        {/* 今日流量：卡片面上只有两个数，**悬停/点一下**摊出节点明细（2026-10-30）——
+        {/* 本月流量：卡片面上只有两个数，**悬停/点一下**摊出节点明细（2026-10-30）——
             每台今天的上下行、以及今天冲到的采样峰值与时刻（见 @/components/TrafficDetail）。 */}
-        <Block title="今日流量" detail={<TrafficDetail nodes={nodes} />} wide>
+        <Block title="本月流量" wide>
           {/* 大数一行（今日上下行），累计并成一行小字——参考站整张卡就是「小标签 / 大数 /
               一行小字」三段，这样四张卡等高、整行才是一个节奏。四个数一个没少。
               栅格间距沿用 `gap-x-2`（与 Pair 同一个值）：整行四张卡的第二列因此落在同一条
