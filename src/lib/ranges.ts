@@ -15,24 +15,23 @@
  *   · 最后补一枚**保留天数本身**，站长把保留天数设成 14 天这种非整档的值时也有个完整窗口。
  * 最多 6 枚（1 小时 / 6 小时 / 24 小时 / 7 天 / 30 天 / 保留天数）——再多一行放不下。
  */
-const BASE = [
-  { hours: 1, label: "1 小时" },
-  { hours: 6, label: "6 小时" },
-  { hours: 24, label: "24 小时" },
-]
-
-/** 保留天数这座「阶梯」：够得着才摆出来。 */
-const LADDER = [7, 30]
-
 export type Range = { hours: number; label: string }
 
+const ALLOWED: Range[] = [
+  { hours: 0.167, label: "10 分钟" },
+  { hours: 0.5, label: "30 分钟" },
+  { hours: 1, label: "1 小时" },
+  { hours: 6, label: "6 小时" },
+  { hours: 12, label: "12 小时" },
+  { hours: 24, label: "24 小时" },
+  { hours: 48, label: "2 天" },
+  { hours: 96, label: "4 天" },
+  { hours: 168, label: "7 天" },
+]
+
 export function rangesFor(days: unknown): Range[] {
-  // 类型不对（老 hub 没有这个字段、站长存的不是数字）一律按 7 天。
-  const n = typeof days === "number" && Number.isFinite(days) ? Math.floor(days) : 7
-  // hub 自己把保留天数钳在 1~365；这边再钳一次，免得一个手改的值把按钮排成 400 枚。
-  const hours = Math.min(365, Math.max(1, n)) * 24
-  const out: Range[] = [...BASE]
-  for (const d of LADDER) if (d * 24 < hours && !out.some((r) => r.hours === d * 24)) out.push({ hours: d * 24, label: `${d} 天` })
-  if (hours > 24 && !out.some((r) => r.hours === hours)) out.push({ hours, label: `${hours / 24} 天` })
-  return out
+  const maxHours = typeof days === "number" && Number.isFinite(days)
+    ? Math.min(168, Math.max(0.167, days * 24))
+    : 168
+  return ALLOWED.filter((range) => range.hours <= maxHours)
 }
