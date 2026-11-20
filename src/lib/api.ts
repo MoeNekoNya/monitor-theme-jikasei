@@ -104,10 +104,15 @@ function apiBase():string {
   try{return first?new URL(first,location.href).origin:location.origin}catch{return location.origin}
 }
 function verifiedKey():string{return VERIFIED_KEY_PREFIX+apiBase()}
+export function normalizeApiPath(path:string):string {
+  const value=path.trim()
+  if(value.startsWith("/api/"))return value
+  return value.startsWith("/")?"/api"+value:"/api/"+value
+}
 function assertAllowed(path:string,method:string):URL {
-  const url=new URL(path.startsWith("/api/")?path.slice(4):path,apiBase())
+  const url=new URL(normalizeApiPath(path),apiBase())
   const allowed=method==="GET"?GET_ALLOW:method==="POST"?POST_ALLOW:new Set<string>()
-  if(!allowed.has("/api"+url.pathname))throw new Error("拒绝未授权的 API 请求："+method+" "+url.pathname)
+  if(!allowed.has(url.pathname))throw new Error("拒绝未授权的 API 请求："+method+" "+url.pathname)
   return url
 }
 function authHeaders(extra?:HeadersInit):Headers {
