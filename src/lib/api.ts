@@ -225,6 +225,11 @@ export async function saveThemeOptions(themeOptions:Record<string,unknown>):Prom
   updateSiteConfigCache({theme_options:result.theme_options||themeOptions})
 }
 
+function configEnabled(value:unknown,fallback:boolean):boolean {
+  if(value===true||value===1||value==="1"||value==="true")return true
+  if(value===false||value===0||value==="0"||value==="false")return false
+  return fallback
+}
 function number(value:unknown):number {const n=Number(value);return Number.isFinite(n)?n:0}
 function bytesFromMb(value:unknown):number {return Math.max(0,number(value))*1024*1024}
 function parseLoad(value:unknown):[number,number,number] {
@@ -265,8 +270,8 @@ export function toNode(server:CfsmServer,sysConfig:SysConfig={}):Node {
   const currency=CFSM_CURRENCY_CODES[currencyRaw]||currencyRaw
   const trafficMode=String(server.traffic_calc_type||"total").toLowerCase()
   const used=trafficMode==="ul"||trafficMode==="up"?monthlyOut:trafficMode==="dl"||trafficMode==="down"?monthlyIn:trafficMode==="max"?Math.max(monthlyIn,monthlyOut):monthlyIn+monthlyOut
-  const showPrice=sysConfig.show_price===true
-  const showExpire=sysConfig.show_expire===true
+  const showPrice=configEnabled(sysConfig.show_price,true)
+  const showExpire=configEnabled(sysConfig.show_expire,true)
   const metrics:Metrics|null=server.last_updated?{
     uptime,cpu:number(server.cpu),load:parseLoad(server.load_avg),
     mem_total:ramTotal,mem_used:ramUsed,swap_total:swapTotal,swap_used:swapUsed,
