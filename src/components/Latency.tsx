@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react"
+import { useMemo } from "react"
 
-import { api, type Node } from "@/lib/api"
+import type { Node } from "@/lib/api"
 
 /** `/api/nodes/{id}/metrics?series=ping` 返回里，本组件用到的几块（形状同详情页）。 */
 type PingPoint = {
