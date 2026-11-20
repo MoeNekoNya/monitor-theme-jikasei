@@ -84,6 +84,7 @@ for (const old of [{ farmUrl: "" }, { farmUrl: "off" }, { farmUrl: "/farm/" }, {
   eq(Object.keys(normalizeConfig(old)).includes("farmUrl"), false, `老配置里的 ${Object.keys(old)[0]} 不再进主题配置`)
 }
 eq(Object.keys(DEFAULTS).includes("farmUrl"), false, "DEFAULTS 里也没有 farmUrl 了")
+eq(Object.keys(DEFAULTS).includes("globeOn"), false, "DEFAULTS 里不再包含已移除的地球开关")
 eq(normalizeConfig({ pingLines: "" }).pingLines, "", "延迟线路空串保留")
 eq(normalizeConfig({ cardStyle: "detail" }).cardStyle, "latency", "normalizeConfig 也走 cardStyle 迁移")
 eq(normalizeConfig({ showSummary: true }).listTop, "summary", "normalizeConfig 也走 listTop 迁移")
@@ -103,7 +104,7 @@ if (fields.length > 7) {
   failed++
   console.error(`✗ theme.json 的非标题设置项有 ${fields.length} 个（> 7）：面板的两列版式已经吃满，再加就要先想清楚`)
 }
-eq(fields.length, 6, "就是 6 个设置项（≤6 走单列平铺版式）")
+eq(fields.length, 5, "就是 5 个设置项（≤6 走单列平铺版式）")
 // 两边的 key 必须一一对上：面板按 theme.json 画表单，页面按 DEFAULTS 兜底。
 const keys = fields.map((f: { key: string }) => f.key).sort()
 eq(keys, Object.keys(DEFAULTS).sort(), "theme.json 的字段与 DEFAULTS 的键一致")
