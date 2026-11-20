@@ -144,10 +144,11 @@ eq(clockBeijing(Date.UTC(2026, 5, 30, 15, 59)), "23:59", "UTC 15:59 → 北京 2
 
 // daysUntil: whole days, negative once past, null when there is no date.
 {
+  // daysUntil 使用北京时间日历；测试日期也必须按 UTC+8 构造，不能依赖 runner 本地时区。
   const at = (days: number) => {
-    const d = new Date()
-    d.setDate(d.getDate() + days)
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+    const d = new Date(Date.now() + 8 * 60 * 60 * 1000)
+    d.setUTCDate(d.getUTCDate() + days)
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`
   }
   eq(daysUntil(at(10)), 10, "十天后")
   eq(daysUntil(at(-3)), -3, "已过期为负")

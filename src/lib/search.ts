@@ -2,8 +2,7 @@ import type { Node } from "@/lib/api"
 // ★相对路径（不是 `@/lib/globe`）：src/lib 下的单测是 `node xxx.test.ts` 直接跑的
 // （Node 自己剥类型），而 Node 不认 tsconfig 里那个 `@/` 别名 —— 值导入一律写相对路径，
 // 类型导入保留别名（会被剥掉，不影响运行）。本仓库已有的 lib 互引用也都是这么写的。
-import { regionOf } from "./globe.ts"
-import { CITY_HINTS } from "./world.ts"
+import { CITY_HINTS, COUNTRY_CITY_FALLBACK, COUNTRY_NAME } from "./region-search-data.ts"
 
 /**
  * 顶栏右上角那个搜索框的口径：一台机器只要**名称 / 地区 / 系统**里有一处命中就算中。
@@ -15,8 +14,8 @@ import { CITY_HINTS } from "./world.ts"
  *
  * ★**中文/英文/代码都能搜**（这一版的重点）：访客写「东京」，站长那张表里写的是 `Tokyo`；
  * 访客写「日本」，机器上是 `JP`。所以除了原样子串匹配，每个关键词还会**展开成一族同义词**再匹配：
- *   ① 城市：直接问地球那张 `CITY_HINTS`（它本来就同时收了中文名、英文名与三字码，如
- *      `/东京|東京|TOKYO|TYO/`）—— 表是同一张，地球认得出的城市搜索就认得出，不会各写一套；
+ *   ① 城市：直接问城市关键词表 `CITY_HINTS`（它本来就同时收了中文名、英文名与三字码，如
+ *      `/东京|東京|TOKYO|TYO/`）—— 表是同一张，原有城市搜索仍然有效，不会各写一套；
  *      那张表里的中文写法还会摊进每台机器的可搜文本，于是站长用英文起名（`JP-TYO-01`）时，
  *      访客打「东」「东京」「TYO」一样搜得到；
  *   ② 国家：`WORD_FAMILIES` 里一族一族写着（`["日本","japan","jpn","jp"]`），节点的国家码
@@ -189,8 +188,14 @@ export function searchTerms(query: string): string[] {
 
 /** 一台机器**能被搜到的全部文本**（小写）。导出它是为了让单测逐字钉住都收了哪些字段。 */
 export function searchText(node: Node): string {
-  const region = regionOf(node)
   const code = (node.country || "").trim().toUpperCase()
+  const locationText = [node.name, node.group].filter(Boolean).join(" ")
+  const hint = CITY_HINTS.find((item) => {
+    item.match.lastIndex = 0
+    return item.match.test(locationText)
+  })
+  const city = hint?.name ?? COUNTRY_CITY_FALLBACK[code] ?? ""
+  const region = code ? { city, label: city || COUNTRY_NAME[code] || code } : null
   return [
     node.name,
     node.group ?? "",
