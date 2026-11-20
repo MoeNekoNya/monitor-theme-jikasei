@@ -63,41 +63,32 @@ const TTL = 60_000
  * 每 `TTL` 刷新一次；页面切到后台时不发（省掉访客看不见的流量），回到前台时若手上这份
  * 已经过期就补一次。同一时刻只允许一条在飞，避免慢请求叠着打。
  */
-function useNodePing(id: number): Probe[] | null {
-  const [probes, setProbes] = useState<Probe[] | null>(null)
-  useEffect(() => {
-    let alive = true
-    let busy = false
-    let fetchedAt = 0
-    const load = () => {
-      if (busy || Date.now() - fetchedAt < TTL) return
-      busy = true
-      fetchedAt = Date.now()
-      acquire().then(() => {
-        if (!alive) {
-          busy = false
-          release()
-          return
-        }
-        api<{ ping?: PingPoint[]; probes?: Probes; loss?: Loss }>(
-          `/nodes/${id}/metrics?hours=1&points=40&series=ping`,
-        )
-          .then((d) => { if (alive) setProbes(normalize(d)) })
-          .catch(() => { if (alive) setProbes([]) })
-          .finally(() => { busy = false; release() })
-      })
+function useNodePing(node: Node): Probe[] {
+  const ping = node.cfsmPingWindow ?? []
+  const loss = node.cfsmLossWindow ?? []
+  const names = node.cfsmProbeNames ?? {}
+  const ids = ["ct", "cu", "cm", "bd"]
+  return ids.map((key, id) => {
+    const points = ping.flatMap((sample) => {
+      const value = sample[key]
+      if (value === false || value === undefined) return []
+      const lossSample = loss.find((row) => row.ts === sample.ts)
+      const lossValue = lossSample?.[key]
+      return [{
+        task_id: id,
+        ts: sample.ts / 1000,
+        latency: value === null ? null : Number(value),
+        loss: typeof lossValue === "number" ? lossValue : 0,
+      }]
+    })
+    const last = points[points.length - 1]
+    return {
+      id,
+      name: names[key] ?? ["电信", "联通", "移动", "BGP"][id],
+      points,
+      loss: last?.loss ?? 0,
     }
-    const onVisible = () => { if (document.visibilityState === "visible") load() }
-    load()
-    const timer = window.setInterval(onVisible, TTL)
-    document.addEventListener("visibilitychange", onVisible)
-    return () => {
-      alive = false
-      window.clearInterval(timer)
-      document.removeEventListener("visibilitychange", onVisible)
-    }
-  }, [id])
-  return probes
+  }).filter((probe) => probe.points.length > 0)
 }
 
 // 延迟分档：顺畅 / 偏高 / 糟，三档都走灰阶——这一块不抢旁边网络数的颜色，只用深浅说话。
@@ -208,7 +199,7 @@ function pickRows(probes: Probe[] | null, lines: string): Probe[] {
  * 行级点击先 `stopPropagation`，否则会走整卡那条「默认页签」的路）。
  */
 export function LatencyPanel({ node, lines, onOpen, adaptive = false }: { node: Node; lines: string; onOpen?: () => void; adaptive?: boolean }) {
-  const probes = useNodePing(node.id)
+  const probes = useNodePing(node)
   const rows = useMemo(() => pickRows(probes, lines), [probes, lines])
   if (rows.length === 0) return null
   // ★版式分档（站长 2026-10-15 定的口径，别再合并成一套）：
