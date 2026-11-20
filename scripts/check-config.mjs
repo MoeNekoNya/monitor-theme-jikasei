@@ -4,7 +4,7 @@
 // 只改一处就是那种「后台显示开着、页面还是旧样子」的毛病，而且两边都不报错。
 //
 // 用法：node scripts/check-config.mjs（npm run check，打包脚本与 CI 都会调）
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 
 const manifest = JSON.parse(readFileSync('theme.json', 'utf8'))
 const fields = (manifest.config || []).filter((entry) => entry.type !== 'title' && entry.key)
@@ -36,20 +36,13 @@ for (const key of Object.keys(declared)) {
 if (problems.length) throw new Error(`设置项默认值两边不一致：\n  ${problems.join('\n  ')}`)
 console.log(`设置项默认值一致：${fields.map((f) => `${f.key}=${f.default}`).join('、')}`)
 
-// 站名那个缓存键散在三处（App 一处、早跑脚本一处、index.html 的内联脚本一处）——它们必须逐字
-// 一致。不一致的症状很阴：缓存有人写、没人读（或反过来），页面照常、后台照常，只是刷新时先闪
-// 一次占位值，谁也不报错。这里一次比清，顺带保住那条早跑脚本没被删。
-//
-// ★ 站点图标那条缓存（`jikasei:site_icon`）1.25.0 起没了：图标改由 hub 1.4.0 的面板管，
-//   主题侧只留 `public/favicon.svg` + `public/favicon.ico` + `public/apple-touch-icon.png` 三份兜底文件。
+// 站名缓存键由 App 与 index.html 的首屏脚本共用，不再使用旧版 /api/me title probe。
 const CACHES = [
   { what: '站名', key: 'jikasei:site_name', places: [
-    ['src/App.tsx', /TITLE_CACHE_KEY\s*=\s*"([^"]+)"/g],
-    ['public/title-probe.js', /var KEY\s*=\s*"([^"]+)"/g],
-    // 只认 `jikasei:` 前缀那一条：index.html 里现在还有首帧明暗那段读的 `theme`（见下一条）。
-    ['index.html', /localStorage\.getItem\("(jikasei:[^"]+)"\)/g],
+    ['src/App.tsx', /TITLE_CACHE_KEY\\s*=\\s*"([^"]+)"/g],
+    ['index.html', /localStorage\\.getItem\\("(jikasei:[^"]+)"\\)/g],
   ] },
-  // 明暗这一档同源两处：App 的 useTheme 读 / 写 / 删，index.html 的首帧脚本事先读一次。
+// 明暗这一档同源两处：App 的 useTheme 读 / 写 / 删，index.html 的首帧脚本事先读一次。
   { what: '明暗', key: 'theme', places: [
     ['src/App.tsx', /localStorage\.getItem\("(theme)"\)/g],
     ['index.html', /localStorage\.getItem\("(theme)"\)/g],
@@ -64,14 +57,7 @@ for (const cache of CACHES) {
   }
 }
 const html = readFileSync('index.html', 'utf8')
-// ★ 2026-10-09：探针改 async 后，写死的精确串 `<script src="/title-probe.js">` 就失配了——
-//   这里匹配的是「整条标签、允许带属性」，并额外钉住 async 本身：普通脚本会阻塞解析、
-//   defer 也会被文档序拖住（实测 300ms 的探针延迟 = 首绘 396 vs 132ms），它是承重的。
-{
-  const probeTag = html.match(/<script src="\/title-probe\.js"[^>]*>/)
-  if (!probeTag) bad.push(`index.html 里没有引入 /title-probe.js（标签页的占位值就没法早点换掉）`)
-  else if (!/\basync\b/.test(probeTag[0])) bad.push(`/title-probe.js 的引入没有 async：普通脚本/defer 会拖住入口与首绘（见 index.html 注释里的实测数）`)
-}
+// 旧版 /title-probe.js 已移除：站名由 /api/config 一次性加载并由 App 更新。
 // 站点图标的两条静态引用：hub 1.4.0 认的就是这两个路径，写成别的名字等于把兜底丢了。
 for (const icon of ['/favicon.svg', '/apple-touch-icon.png']) {
   if (!html.includes(`href="${icon}"`)) bad.push(`index.html 里没有引用 ${icon}（站点图标的兜底就断了）`)
@@ -92,9 +78,5 @@ for (const icon of ['/favicon.svg', '/apple-touch-icon.png']) {
   if (!css.includes('color-scheme: dark')) bad.push('src/index.css 的 .dark 没有 color-scheme: dark（原生控件不会转暗）')
   if (!css.includes('color-scheme: light')) bad.push('src/index.css 的 :root 没有 color-scheme: light（原生控件不会转亮）')
 }
-// 主题包里必须真的带着这两份兜底文件（public/ 会被原样拷进 dist/）。
-for (const file of ['public/favicon.svg', 'public/favicon.ico', 'public/apple-touch-icon.png']) {
-  if (!existsSync(file)) bad.push(`缺少 ${file}`)
-}
-if (bad.length) throw new Error(`缓存键或早跑脚本对不上：\n  ${bad.join('\n  ')}`)
-console.log(`缓存键一致：${CACHES.map((c) => `${c.what} ${c.key}（${c.places.length} 处）`).join('、')}；早跑脚本在 index.html 里；站点图标两条静态引用与三份兜底文件都在`)
+if (bad.length) throw new Error(`缓存键或首帧脚本对不上：\n  ${bad.join('\n  ')}`)
+console.log(`缓存键一致：${CACHES.map((c) => `${c.what} ${c.key}（${c.places.length} 处）`).join('、')}；CFSM 站点图标由默认皮肤提供`)
