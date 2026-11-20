@@ -88,7 +88,7 @@ export function Country({ node }: { node: Node }) {
   }
   return (
     <img
-      src={`/assets/flags/${code}.svg`}
+      src={`/flags/${code}.svg`}
       alt={code}
       title={code}
       width={24}
