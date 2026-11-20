@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 
-import { api } from "@/lib/api"
+import { getSiteConfig } from "@/lib/api"
 import { cardStyleOrNull, DEFAULTS, normalizeConfig, type ThemeConfig } from "@/lib/site-settings"
 
 /**
@@ -146,7 +146,7 @@ export function useThemeConfig(): ThemeConfig {
   const [config, setConfig] = useState(DEFAULTS)
   useEffect(() => {
     let active = true
-    api<Partial<ThemeConfig>>(`/themes/${SHORT}/config`)
+    getSiteConfig().then((site) => (site.theme_options || {}) as Partial<ThemeConfig>)
       .then((saved) => {
         if (!active) return
         // 逐项收窄 + 旧值迁移都在 site-settings.ts（那里能单测）。
