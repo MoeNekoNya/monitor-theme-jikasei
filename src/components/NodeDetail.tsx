@@ -171,7 +171,7 @@ export function NodeDetail({ node, embedded = false, onOpenDetail, historyDays, 
   // （以及紧凑展开行的「完整详情 ›」）就是靠它直达的（2026-10-12 的创意项）；
   // 其余一概落「资源」，与从前一致。刷新同理：URL 里带着哪个页签，落哪个。
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>(
-    embedded ? "latency" : new URLSearchParams(location.search).get("tab") === "latency" ? "latency" : "resources",
+    embedded ? "latency" : new URLSearchParams(location.hash.split("?")[1] || "").get("tab") === "latency" ? "latency" : "resources",
   )
   /**
    * 切页签（整页详情）：顺手把 `?tab=` 同步进地址栏（replace，不往历史里塞条目）——
