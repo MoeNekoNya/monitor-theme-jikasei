@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { daysUntil } from "./format.ts"
 
 export type Metrics = {
   uptime:number; cpu:number; load:[number,number,number]
@@ -230,26 +231,26 @@ function parseLoad(value:unknown):[number,number,number] {
   const parts=String(value??"").trim().split(/\s+/).map(Number)
   return [Number.isFinite(parts[0])?parts[0]:0,Number.isFinite(parts[1])?parts[1]:0,Number.isFinite(parts[2])?parts[2]:0]
 }
-function parseTrafficLimit(value:unknown):number {
+export function parseTrafficLimit(value:unknown):number {
   const text=String(value??"").trim().replace(/,/g,"")
+  if(!text)return 0
   const match=text.match(/^([\d.]+)\s*(B|KB|MB|GB|TB|PB)?$/i)
   if(!match)return 0
-  const unit=(match[2]||"B").toUpperCase()
+  // CFSM stores a unitless traffic_limit as GB; explicit units remain supported.
+  const unit=(match[2]||"GB").toUpperCase()
   const pow=["B","KB","MB","GB","TB","PB"].indexOf(unit)
   return Math.max(0,number(match[1])*1024**Math.max(0,pow))
 }
+const CFSM_CURRENCY_CODES:Record<string,string>={
+  "$":"USD","¥":"CNY","￥":"CNY","€":"EUR","£":"GBP","¥JPY":"JPY"
+}
+
 function stableNumericId(value:string):number {
   let hash=2166136261
   for(let i=0;i<value.length;i++){hash^=value.charCodeAt(i);hash=Math.imul(hash,16777619)}
   return (hash>>>0)||1
 }
-function daysRemaining(value:unknown):number|null {
-  const raw=String(value??"").trim()
-  if(!raw)return null
-  const date=new Date(raw+"T23:59:59")
-  if(!Number.isFinite(date.getTime()))return null
-  return Math.ceil((date.getTime()-Date.now())/86400000)
-}
+
 export function toNode(server:CfsmServer,sysConfig:SysConfig={}):Node {
   const updated=number(server.last_updated||server.reportTs||server.timestamp)
   const boot=number(server.boot_time)
@@ -260,9 +261,10 @@ export function toNode(server:CfsmServer,sysConfig:SysConfig={}):Node {
   const monthlyIn=number(server.net_rx_monthly),monthlyOut=number(server.net_tx_monthly)
   const priceText=String(server.price??"").trim()
   const price=priceText&&priceText!=="0"&&priceText!=="-1"?number(priceText):0
-  const currency=String(server.currency??"¥")
+  const currencyRaw=String(server.currency??"¥").trim()
+  const currency=CFSM_CURRENCY_CODES[currencyRaw]||currencyRaw
   const trafficMode=String(server.traffic_calc_type||"total").toLowerCase()
-  const used=trafficMode==="up"?monthlyOut:trafficMode==="down"?monthlyIn:trafficMode==="max"?Math.max(monthlyIn,monthlyOut):monthlyIn+monthlyOut
+  const used=trafficMode==="ul"||trafficMode==="up"?monthlyOut:trafficMode==="dl"||trafficMode==="down"?monthlyIn:trafficMode==="max"?Math.max(monthlyIn,monthlyOut):monthlyIn+monthlyOut
   const showPrice=sysConfig.show_price===true
   const showExpire=sysConfig.show_expire===true
   const metrics:Metrics|null=server.last_updated?{
@@ -298,7 +300,7 @@ export function toNode(server:CfsmServer,sysConfig:SysConfig={}):Node {
     mem_total:ramTotal,swap_total:swapTotal,disk_total:diskTotal,agent_version:String(server.agent_version||""),
     price:showPrice?price:0,currency,billing_cycle:showPrice?String(server.billing_cycle||""):"",
     expires_at:showExpire?(String(server.expire_date||"").trim()||null):null,
-    expires_in:showExpire?daysRemaining(server.expire_date):null,
+    expires_in:showExpire?daysUntil(String(server.expire_date||"").trim()||null):null,
     traffic_limit:parseTrafficLimit(server.traffic_limit),traffic_mode:trafficMode,
     traffic_reset_day:number(server.reset_day),total_rx:number(server.net_rx),total_tx:number(server.net_tx),
     month_rx:monthlyIn,month_tx:monthlyOut,month_used:used,month_start:"",

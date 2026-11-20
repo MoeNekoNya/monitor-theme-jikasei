@@ -155,6 +155,16 @@ export function money(amount: number, currency: string): string {
 }
 
 export const CYCLES: Record<string, string> = {
+  // CFSM canonical billing_cycle values.
+  month: "月付",
+  quarter: "季付",
+  half_year: "半年付",
+  year: "年付",
+  two_years: "两年付",
+  three_years: "三年付",
+  four_years: "四年付",
+  five_years: "五年付",
+  // Legacy aliases retained for existing saved data.
   monthly: "月付",
   quarterly: "季付",
   semiannual: "半年付",
@@ -171,6 +181,16 @@ export const CYCLES: Record<string, string> = {
  * 只留金额 —— 老 hub 或手填的值不该把「/undefined」印到卡片上。
  */
 export const CYCLE_SHORT: Record<string, string> = {
+  // CFSM canonical billing_cycle values.
+  month: "月",
+  quarter: "季",
+  half_year: "半年",
+  year: "年",
+  two_years: "两年",
+  three_years: "三年",
+  four_years: "四年",
+  five_years: "五年",
+  // Legacy aliases retained for existing saved data.
   monthly: "月",
   quarterly: "季",
   semiannual: "半年",

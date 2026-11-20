@@ -26,8 +26,10 @@ export function monthUsage(node: Node): number {
   const rx = node.month_rx || 0
   const tx = node.month_tx || 0
   switch (node.traffic_mode) {
+    case "ul":
     case "up":
       return tx
+    case "dl":
     case "down":
       return rx
     case "max":

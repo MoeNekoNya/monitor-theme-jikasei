@@ -22,13 +22,22 @@ import { daysUntil } from "./format.ts"
  *   最接近「这台机器一个月花多少」，也不会让那个节点整台从合计里消失。
  */
 const CYCLE: Record<string, { months: number; days: number }> = {
+  // CFSM canonical billing_cycle values.
+  month: { months: 1, days: 30 },
+  quarter: { months: 3, days: 90 },
+  half_year: { months: 6, days: 180 },
+  year: { months: 12, days: 365 },
+  two_years: { months: 24, days: 730 },
+  three_years: { months: 36, days: 1095 },
+  four_years: { months: 48, days: 1460 },
+  five_years: { months: 60, days: 1825 },
+  // Legacy aliases retained for saved fixtures / older theme data.
   monthly: { months: 1, days: 30 },
   quarterly: { months: 3, days: 90 },
   semiannual: { months: 6, days: 180 },
   yearly: { months: 12, days: 365 },
   biennial: { months: 24, days: 730 },
   triennial: { months: 36, days: 1095 },
-  // 一次性买断：没有「每月」也没有「剩多少天」，两块都不计入。
   once: { months: 0, days: 0 },
 }
 
