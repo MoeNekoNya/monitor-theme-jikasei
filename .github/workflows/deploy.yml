@@ -58,7 +58,7 @@ jobs:
 
       - name: Publish to dist branch, preserving branch history
         env:
-          SOURCE_MESSAGE: \${{ github.event.head_commit.message || github.sha }}
+          SOURCE_MESSAGE: ${{ github.event.head_commit.message || github.sha }}
         run: |
           git fetch origin dist
           git checkout -B dist origin/dist
