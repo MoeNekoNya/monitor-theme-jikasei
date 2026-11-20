@@ -29,6 +29,7 @@ export type SysConfig = {
 }
 type CfsmServer = Record<string,any> & {id:string;name:string;last_updated?:number}
 type CfsmSample = {ts:number;data?:Record<string,unknown>;payload?:Record<string,unknown>;metrics?:Record<string,unknown>}
+type CfsmLatencySample = {ts:number;[key:string]:number|null|false}
 type CfsmUpdate = {serverId:string;samples:CfsmSample[]}
 
 export type Node = {
@@ -73,8 +74,8 @@ export type Node = {
   hostname?:string
   ip?:string
   remark?:string
-  cfsmPingWindow?:Array<Record<string,number|null|false>>
-  cfsmLossWindow?:Array<Record<string,number|null|false>>
+  cfsmPingWindow?:CfsmLatencySample[]
+  cfsmLossWindow?:CfsmLatencySample[]
   cfsmProbeNames?:Record<string,string>
 }
 export class ApiError extends Error {
@@ -494,7 +495,7 @@ export function useNodes(activeId:string|null=null) {
 
   useEffect(()=>{
     let alive=true
-    getSiteConfig().then(async config=>{
+    getSiteConfig().then(async ()=>{
       if(!alive)return
       if(activeId===null){
         if(loaded.current)return
@@ -522,7 +523,7 @@ export function useNodes(activeId:string|null=null) {
     if(!siteConfig)return
     if(activeId===null&&!loaded.current)return
     if(activeId!==null&&!activeId)return
-    const mode:SocketMode=activeId===null?{scope:"all",ids}:{scope:activeId,ids:[]}
+    const mode:SocketMode=activeId===null?{scope:"all",ids:[...raw.current.keys()]}:{scope:activeId,ids:[]}
     let stop:(()=>void)|null=null
     const start=()=>{
       if(document.visibilityState==="hidden")return
