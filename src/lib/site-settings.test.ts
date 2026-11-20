@@ -96,7 +96,7 @@ eq(normalizeConfig({ listTop: "both" }).listTop, "both", "新值优先")
 // 两列里每格只有半宽，说明文字容易折成四五行 —— 1.5.0 就是为此把两个顶部开关并成一个四选一的。
 //
 // ★ 2026-10-07 站长先要了「节点地球」与「主题模式」两项（7 个），随后**把「农场入口」删掉**
-//   （顶栏入口改成自动探测，不再需要设置项）→ 回到 **6 个**，面板也回到那套一页平铺的单列版式
+//   （顶栏入口改成自动探测，不再需要设置项）→ 回到 **5 个**，面板也回到那套一页平铺的单列版式
 //   （最好看的那一档）。**上限仍是 7**：再加第 8 项之前先问清楚，或者先想能不能并进现有的某一格。
 const manifest = JSON.parse(readFileSync(new URL("../../theme.json", import.meta.url), "utf8"))
 const fields = manifest.config.filter((f: { type: string }) => f.type !== "title")
