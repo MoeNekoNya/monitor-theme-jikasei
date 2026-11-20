@@ -10,59 +10,8 @@ type PingPoint = {
   band?: [number, number]
   loss?: number
 }
-type Probes = Record<string, string>
-type Loss = Record<string, number>
-
 type Probe = { id: number; name: string; points: PingPoint[]; loss: number }
 
-/**
- * 每张卡片各要一条延迟历史，节点一多就是几十条并发。hub 建历史窗口是有并发上限的
- * （详情页那段注释写着它会把 agent 上报的那条连接占住），一次全打过去会换回一串 503。
- * 所以这里自己排个队：最多同时三条，其余排队等着，谁先下来谁放行下一个。
- */
-const MAX_CONCURRENT = 3
-let running = 0
-const waiting: Array<() => void> = []
-function acquire(): Promise<void> {
-  if (running < MAX_CONCURRENT) {
-    running++
-    return Promise.resolve()
-  }
-  return new Promise((resolve) => waiting.push(() => { running++; resolve() }))
-}
-function release() {
-  running--
-  waiting.shift()?.()
-}
-
-function normalize(d: { ping?: PingPoint[]; probes?: Probes; loss?: Loss }): Probe[] {
-  const ping = d.ping ?? []
-  const names = d.probes ?? {}
-  const loss = d.loss ?? {}
-  return [...new Set(ping.map((p) => p.task_id))]
-    .map((id) => ({
-      id,
-      name: names[String(id)] ?? `探测 ${id}`,
-      points: ping.filter((p) => p.task_id === id).sort((a, b) => a.ts - b.ts),
-      loss: Number(loss[String(id)] ?? 0),
-    }))
-    .filter((p) => p.points.length > 0)
-}
-
-/**
- * 卡片的延迟数据多久算过期。页面上其余数字跟着 hub 的快照在跳，这一块要是只在挂载时
- * 取一次，访客开着页面看十几分钟仍是进页面那一刻的延迟。到点重新取一次，成本与首屏
- * 相同（仍走上面那个三条并发的队列）。
- */
-const TTL = 60_000
-
-/**
- * 拉本节点最近一小时的延迟：点数取 40，够画一条能看出起伏的走势线，又不至于让每张
- * 卡片多背一大坨。失败与「这段时间没有延迟数据」都收敛成空数组，卡片上什么都不画。
- *
- * 每 `TTL` 刷新一次；页面切到后台时不发（省掉访客看不见的流量），回到前台时若手上这份
- * 已经过期就补一次。同一时刻只允许一条在飞，避免慢请求叠着打。
- */
 function useNodePing(node: Node): Probe[] {
   const ping = node.cfsmPingWindow ?? []
   const loss = node.cfsmLossWindow ?? []
