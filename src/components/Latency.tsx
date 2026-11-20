@@ -1,0 +1,199 @@
+import { useMemo } from "react"
+
+import type { Node } from "@/lib/api"
+
+/** `/api/nodes/{id}/metrics?series=ping` 返回里，本组件用到的几块（形状同详情页）。 */
+type PingPoint = {
+  task_id: number
+  ts: number
+  latency: number | null
+  band?: [number, number]
+  loss?: number
+}
+type Probe = { id: number; name: string; points: PingPoint[]; loss: number }
+
+function useNodePing(node: Node): Probe[] {
+  const ping = node.cfsmPingWindow ?? []
+  const loss = node.cfsmLossWindow ?? []
+  const names = node.cfsmProbeNames ?? {}
+  const ids = ["ct", "cu", "cm", "bd"]
+  return ids.map((key, id) => {
+    const points = ping.flatMap((sample) => {
+      const value = sample[key]
+      if (value === false || value === undefined) return []
+      const lossSample = loss.find((row) => row.ts === sample.ts)
+      const lossValue = lossSample?.[key]
+      return [{
+        task_id: id,
+        ts: sample.ts / 1000,
+        latency: value === null ? null : Number(value),
+        loss: typeof lossValue === "number" ? lossValue : 0,
+      }]
+    })
+    const last = points[points.length - 1]
+    return {
+      id,
+      name: names[key] ?? ["电信", "联通", "移动", "BGP"][id],
+      points,
+      loss: last?.loss ?? 0,
+    }
+  }).filter((probe) => probe.points.length > 0)
+}
+
+// 延迟分档：顺畅 / 偏高 / 糟，三档都走灰阶——这一块不抢旁边网络数的颜色，只用深浅说话。
+// 阈值取整百毫秒，跨海线路普遍在 150-200 之间，想改就改这两个数。丢包只要不为零，
+// 至少抬到「偏高」；到 5% 直接算「糟」。
+const GOOD_MS = 100
+const WARN_MS = 200
+type Tone = "ok" | "warn" | "bad" | "none"
+
+function toneOf(ms: number | null, loss: number): Tone {
+  // ★丢包先判（2026-11-06）：整窗全超时的探测 `ms` 是 null、loss 是 100，原来被当成
+  //   「没有读数」涂成最淡的灰 —— 彻底挂掉反而比 5% 丢包更不显眼。挂了的就该最深。
+  if (loss >= 5) return "bad"
+  if (ms === null) return loss > 0 ? "warn" : "none"
+  if (ms >= WARN_MS) return "bad"
+  if (loss > 0 || ms >= GOOD_MS) return "warn"
+  return "ok"
+}
+
+// 越糟越深：顺畅用弱化灰（和旁边的线路名同色，安静），偏高转深，糟用前景色顶格。
+// 数值与走势线共用这一个灰阶，一条线越黑越该看一眼。
+const toneClass = (tone: Tone) =>
+  tone === "bad" ? "text-foreground"
+    : tone === "warn" ? "text-foreground/70"
+      : "text-muted-foreground"
+
+const SPARK_W = 100
+const SPARK_H = 20
+
+/** 走势线：无坐标轴、无交互，只把这一小时的起伏画出来；断点照断，不连桥。
+    ★w-full：svg 是替换元素，做 grid 项时默认的 stretch 不会把它撑满轨道（会停在
+    viewBox 比例推出来的固有宽）——显式 width:100% 拿足整条轨道；flex 那处不受影响
+    （flex-1 的 basis 是 0%，flex 布局主轴上宽度声明不参与定尺）。 */
+function Sparkline({ values, className }: { values: Array<number | null>; className: string }) {
+  const nums = values.filter((v): v is number => v !== null)
+  if (nums.length < 2) return <span className="w-full min-w-0 flex-1" />
+  const min = Math.min(...nums)
+  const max = Math.max(...nums)
+  const span = max - min || 1
+  // 平直的一条（稳定线路很常见）没有起伏可画：钉在中间那行，否则它会贴着框底，
+  // 读起来像「读数接近 0」或「刚掉下去」（2026-11-06）。
+  const flat = max === min
+  const x = (i: number) => (values.length <= 1 ? 0 : (i * SPARK_W) / (values.length - 1))
+  const y = (v: number) => (flat ? SPARK_H / 2 : SPARK_H - 2 - ((v - min) / span) * (SPARK_H - 4))
+  const segments: string[] = []
+  let current: string[] = []
+  values.forEach((v, i) => {
+    if (v === null) {
+      if (current.length) { segments.push(current.join(" ")); current = [] }
+      return
+    }
+    current.push(`${x(i).toFixed(1)},${y(v).toFixed(1)}`)
+  })
+  if (current.length) segments.push(current.join(" "))
+  return (
+    <svg
+      viewBox={`0 0 ${SPARK_W} ${SPARK_H}`}
+      preserveAspectRatio="none"
+      className={`h-4 w-full min-w-0 flex-1 ${className}`}
+      aria-hidden="true"
+    >
+      {segments.map((points, i) => (
+        <polyline
+          key={i}
+          points={points}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          vectorEffect="non-scaling-stroke"
+        />
+      ))}
+    </svg>
+  )
+}
+
+/**
+ * 卡面那份行选择：站长在后台「三网延迟」里填了名字就按名字取、按填写的顺序，
+ * 留空则按后台顺序自动取前三条；两处都卡在三条以内（与设置项里写的「最多三个」一致）。
+ * 匹配用的是 ping 任务的名字，改过名、删过任务的那一行自然落空、不占位——三条的上限卡在
+ * **真正渲染出来的行**上，所以先按名字取、再截断（反过来写的话，填写清单里前三个名字有一个
+ * 对不上，访客就只看到两行，而设置项里明明写着三条）。
+ */
+function pickRows(probes: Probe[] | null, lines: string): Probe[] {
+  const all = probes ?? []
+  const wanted = [...new Set(lines.split("\n").map((s) => s.trim()).filter(Boolean))]
+  if (wanted.length === 0) return all.slice(0, 3)
+  const byName = new Map<string, Probe>()
+  for (const p of all) if (!byName.has(p.name)) byName.set(p.name, p)
+  return wanted
+    .map((name) => byName.get(name))
+    .filter((p): p is Probe => p !== undefined)
+    .slice(0, 3)
+}
+
+/**
+ * 卡片底部那组「三网延迟」：一条线路一行——线路名、当前延迟、一小时走势、丢包率。
+ * 数据来自 hub 的 ping 历史（同详情页的延迟图），按 `task_id` 一条一条摊开；线路名用的是
+ * 站长在后台给 ping 任务起的名字，所以「广东电信」这类带地域的叫法原样呈现。
+ * 延迟与走势只走灰阶，越糟越深（见 toneClass）。站长可在后台「三网延迟」里指定显示哪几条
+ * （按 ping 任务名匹配，一行一个，最多三条）；留空时按后台顺序自动取前三条。数据每 60 秒
+ * 刷新一次（页面在后台时不取）。
+ *
+ * `onOpen` 给了就整块可点：点一行**直达详情页的「网络延迟」页签** —— 这一块显示的就是那张
+ * 一小时的延迟图，想看更大更全的同款，点它比「先开详情、再找页签」少一步（2026-10-12 的
+ * 创意项）。行 hover 时线路名从弱化灰提亮，作为「这里能点」的提示（与整卡可点不冲突：
+ * 行级点击先 `stopPropagation`，否则会走整卡那条「默认页签」的路）。
+ */
+export function LatencyPanel({ node, lines, onOpen, adaptive = false }: { node: Node; lines: string; onOpen?: () => void; adaptive?: boolean }) {
+  const probes = useNodePing(node)
+  const rows = useMemo(() => pickRows(probes, lines), [probes, lines])
+  if (rows.length === 0) return null
+  // ★版式分档（站长 2026-10-15 定的口径，别再合并成一套）：
+  //  · **延迟档（adaptive）**：2026-10-14 论坛反馈的 C 稿——名字/数值列按内容自适应，上限沿用
+  //    旧口径（名字最宽 80px、超了截断 + title 悬停看全；丢包列仍固定 40px 右对齐）。行是
+  //    subgrid：列宽在本容器（`[data-latency]`）内**整块共享**，短名字贴身、三行仍逐列对齐。
+  //  · **详细档（不带 adaptive）**：保持固定列原样（名字 80 + 数值 56 右对齐 + 丢包 40），
+  //    逐字未动——站长要详细卡维持原表格感。
+  // 逐宽判据：tools/verify_latency_row_fit.mjs。
+  return (
+    // `data-latency` 是给护栏认「这一档摊没摊三网延迟」的锚点（`data-net` 同一套做法：
+    // 按类名找会在改版后失配，而失配的表现是"看着没坏"）。
+    <div
+      data-latency=""
+      className={adaptive
+        ? "mt-4 grid grid-cols-[max-content_max-content_minmax(0,1fr)_2.5rem] items-center gap-x-2 gap-y-1.5 border-t pt-4"
+        : "mt-4 space-y-1.5 border-t pt-4"}
+    >
+      {rows.map((p) => {
+        const last = [...p.points].reverse().find((pt) => pt.latency !== null)
+        const ms = last?.latency ?? null
+        const tone = toneOf(ms, p.loss)
+        const gray = toneClass(tone)
+        return (
+          <div
+            key={p.id}
+            className={adaptive
+              ? `group col-span-4 grid grid-cols-subgrid items-center gap-x-2 text-xs ${onOpen ? "cursor-pointer" : ""}`
+              : `group flex items-center gap-2 text-xs ${onOpen ? "cursor-pointer" : ""}`}
+            onClick={onOpen ? (e) => { e.stopPropagation(); onOpen() } : undefined}
+            title={onOpen ? "打开详情 · 网络延迟" : undefined}
+          >
+            {/* 线路名列：自适应档按内容收缩（上限 80px = 老固定列宽，超长截断 + title 悬停看全）；
+                详细档保持 80px 固定列。可点时 hover 提亮，作为「行能点」的低调提示。 */}
+            <span data-probe-name="" className={`${adaptive ? "max-w-20" : "w-20 shrink-0"} truncate text-muted-foreground ${onOpen ? "transition-colors group-hover:text-foreground" : ""}`} title={p.name}>{p.name}</span>
+            <span className={adaptive ? `tnum text-right font-medium ${gray}` : `tnum w-14 shrink-0 text-right font-medium ${gray}`}>
+              {ms === null ? "超时" : `${ms} ms`}
+            </span>
+            <Sparkline values={p.points.map((pt) => pt.latency)} className={gray} />
+            <span className={adaptive ? "tnum text-right text-muted-foreground" : "tnum w-10 shrink-0 text-right text-muted-foreground"}>
+              {p.loss > 0 ? `${p.loss.toFixed(1)}%` : "0.0%"}
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
