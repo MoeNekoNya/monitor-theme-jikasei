@@ -1,6 +1,7 @@
 /// <reference types="node" />
 import assert from "node:assert/strict"
-import { groupView, groupsOf, normalizeApiPath, safeNodes, sample, speedHistory, type Node } from "./api.ts"
+import { groupView, groupsOf, normalizeApiPath, parseTrafficLimit, safeNodes, sample, speedHistory, toNode, type Node } from "./api.ts"
+import { daysUntil } from "./format.ts"
 
 assert.equal(normalizeApiPath("/config"), "/api/config")
 assert.equal(normalizeApiPath("/servers"), "/api/servers")
@@ -8,6 +9,39 @@ assert.equal(normalizeApiPath("/server?id=abc"), "/api/server?id=abc")
 assert.equal(normalizeApiPath("/history/all?id=abc&hours=0.167"), "/api/history/all?id=abc&hours=0.167")
 assert.equal(normalizeApiPath("/api/servers"), "/api/servers")
 console.log("CFSM API path prefix: all passed")
+
+// CFSM traffic_limit is stored as GB when no explicit unit is present.
+const GiB=1024**3
+assert.equal(parseTrafficLimit("100"),100*GiB,"unitless CFSM quota means 100 GB")
+assert.equal(parseTrafficLimit("100 GB"),100*GiB,"explicit GB quota")
+assert.equal(parseTrafficLimit("1TB"),1024**4,"explicit TB quota")
+assert.equal(parseTrafficLimit("0"),0,"zero means no traffic cap")
+
+// CFSM uses dl / ul / max / total (not down / up) and date-only expiry values.
+const expiryBase=new Date(Date.now()+8*60*60*1000)
+expiryBase.setUTCDate(expiryBase.getUTCDate()+20)
+const expiryDate=`${expiryBase.getUTCFullYear()}-${String(expiryBase.getUTCMonth()+1).padStart(2,"0")}-${String(expiryBase.getUTCDate()).padStart(2,"0")}`
+const cfsmServer={
+  id:"11111111-2222-4333-8444-555555555555",name:"CFSM test",last_updated:Date.now(),
+  is_hidden:"0",sort_order:1,price:"90.00",currency:"¥",billing_cycle:"quarter",
+  expire_date:expiryDate,traffic_limit:"100",traffic_calc_type:"dl",
+  net_rx_monthly:2*GiB,net_tx_monthly:5*GiB,net_rx:3*GiB,net_tx:6*GiB,
+  net_in_speed:0,net_out_speed:0,ram_total:0,ram_used:0,swap_total:0,swap_used:0,
+  disk_total:0,disk_used:0,cpu_cores:0
+}
+const mappedDl=toNode(cfsmServer,{show_price:true,show_expire:true})
+assert.equal(mappedDl.traffic_limit,100*GiB,"server card quota converted from GB to bytes")
+assert.equal(mappedDl.month_used,2*GiB,"dl meters monthly download only")
+assert.equal(mappedDl.currency,"CNY","CFSM ¥ is normalized to ISO CNY for the budget calculator")
+assert.equal(mappedDl.billing_cycle,"quarter","CFSM billing cycle passes through")
+assert.equal(mappedDl.expires_at,expiryDate,"expiry date is retained")
+assert.equal(mappedDl.expires_in,daysUntil(expiryDate),"expiry days use the shared Beijing calendar")
+assert.equal(toNode(cfsmServer,{show_price:true,show_expire:false}).expires_at,null,"hidden expiry setting suppresses date")
+assert.equal(toNode(cfsmServer,{show_price:true,show_expire:false}).expires_in,null,"hidden expiry setting suppresses days")
+for (const [mode,expected] of [["dl",2*GiB],["ul",5*GiB],["max",5*GiB],["total",7*GiB]] as const) {
+  assert.equal(toNode({...cfsmServer,traffic_calc_type:mode},{show_expire:true}).month_used,expected,`CFSM traffic mode ${mode}`)
+}
+console.log("CFSM traffic quota, direction and expiry mapping: all passed")
 
 const node = { id: 1, metrics: { uptime: 100, cpu: 1, load: [0.1, 0.2, 0.3],
   mem_total: 1024, mem_used: 512, swap_total: 0, swap_used: 0, disk_total: 2048, disk_used: 1024,
