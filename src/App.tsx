@@ -26,6 +26,7 @@ type Me = {
   public_page: boolean
   /** hub 的历史保留天数（1~365，1.3.2 起默认 30）。老 hub 不给：时间范围按 7 天算（@/lib/ranges）。 */
   history_days?: number
+  version?: string
 }
 
 // The tab title cache key, shared with the inline script in index.html. Kept as the
@@ -363,6 +364,7 @@ export default function App() {
           site_name: config.site_title || "Monitor",
           public_page: config.is_public === true,
           history_days: 7,
+          version: config.version,
         }
         setMe(next)
         setMeError("")
@@ -737,10 +739,12 @@ export default function App() {
           （链接地址与 theme.json 的 url 是同一个，见上面的 REPO_URL）。样式见 index.css 的 .theme-credit。 */}
       <footer className={`mx-auto mt-2 w-full ${shell} border-t px-4 pb-5 pt-4 sm:mt-0 sm:border-t-0 sm:px-6 sm:pb-5 sm:pt-1`}>
         <p className="theme-credit text-center sm:pr-3 sm:text-right">
-          Theme:{" "}
-          <a href={REPO_URL} target="_blank" rel="noreferrer">
-            Jikasei
+          Powered by{" "}
+          <a href="https://github.com/huilang-me/CF-Server-Monitor/" target="_blank" rel="noreferrer" title={me?.version || "CF-Server-Monitor"}>
+            CF-Server-Monitor
           </a>
+          {" · Theme: "}
+          <a href={REPO_URL} target="_blank" rel="noreferrer">Jikasei</a>
         </p>
       </footer>
     </div>
