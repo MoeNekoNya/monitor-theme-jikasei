@@ -10,7 +10,7 @@ import { SearchBox, SearchRow } from "@/components/SearchBox"
 import { SummaryCards } from "@/components/Summary"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { api, groupView, useNodes } from "@/lib/api"
+import { getSiteConfig, api, groupView, useNodes } from "@/lib/api"
 import { regionView } from "@/lib/globe"
 import { hasDetailRemarks } from "@/lib/notes"
 import { searchNodes } from "@/lib/search"
@@ -142,20 +142,20 @@ function readListState(): ListState {
 }
 
 /** 列表 / 详情共用的地址串：有值才带；详情页可选再带 `?tab=`。 */
-function pageUrl(id: number | null, tab: string | null, s: ListState): string {
+function pageUrl(id: string | null, tab: string | null, s: ListState): string {
   const p = new URLSearchParams()
   if (s.group !== null) p.set("group", s.group)
   if (s.region !== null) p.set("region", s.region)
   if (s.q.trim() !== "") p.set("q", s.q)
   if (id !== null && tab) p.set("tab", tab)
   const qs = p.toString()
-  return `${id === null ? "/" : `/node/${id}`}${qs ? `?${qs}` : ""}`
+  return `${id === null ? "/" : `/node/${encodeURIComponent(id)}`}${qs ? `?${qs}` : ""}`
 }
 
 function useNodeRoute(onPop: (s: ListState) => void) {
   const read = () => {
-    const match = location.pathname.match(/^\/node\/(\d+)/)
-    return match ? Number(match[1]) : null
+    const match = location.pathname.match(/^\/node\/([^/]+)/)
+    return match ? decodeURIComponent(match[1]) : null
   }
   const [id, setId] = useState(read)
   useEffect(() => {
@@ -169,8 +169,8 @@ function useNodeRoute(onPop: (s: ListState) => void) {
   }, [onPop])
   return [
     id,
-    (next: number | null, url?: string) => {
-      history.pushState({}, "", url ?? (next === null ? "/" : `/node/${next}`))
+    (next: string | null, url?: string) => {
+      history.pushState({}, "", url ?? (next === null ? "/" : `/node/${encodeURIComponent(next)}`))
       setId(next)
       scrollTo(0, 0)
     },
@@ -288,10 +288,9 @@ export default function App() {
   const [dark, toggleTheme] = useTheme(config.themeMode)
   // 顶栏那枚入口图标（1.25.0 起没有设置项）：挂载即探一次本站约定的 `/chicken/`，
   // 装了那座小鸡农场才出现、没装不占位（判据是内容而不是状态码，见 useLocalFarm）。
-  const farmUrl = useLocalFarm()
+  const farmUrl = ""
   const [me, setMe] = useState<Me | null>(null)
   const [meError, setMeError] = useState("")
-  const { nodes, error, closed } = useNodes()
   // 筛选三件套（分组 / 地区 / 搜索词）：**初始值从地址栏读**（刷新、收藏、别人分享的链接
   // 都因此带着筛选进来），之后变化再写回去（见下面的 replaceState 那段）。
   const [group, setGroup] = useState<string | null>(() => readListState().group)
@@ -311,6 +310,7 @@ export default function App() {
     setCursor(null)
   }, [])
   const [open, go] = useNodeRoute(onPop)
+  const { nodes, error, closed, siteConfig } = useNodes(open)
   // 访客自己的两个偏好（都只存在他自己浏览器里，见 @/lib/theme-config）：
   // 地球看不看，以及列表用哪种卡片形态 —— 后者没选过时跟着站长的设置走。
   // ★ 站长那档是「节点地球」的**闸门**：他关掉时 `globeOn` 一律是 false，顶栏那枚开关也一起
@@ -353,8 +353,18 @@ export default function App() {
     // res.statusText, which HTTP/2 and HTTP/3 removed, so a bodiless 502 from a
     // proxy arrives as "". The check below would then take the loading branch and
     // the retry button would never render.
-    return api<Me>("/me")
-      .then((next) => { setMe(next); setMeError("") })
+    return getSiteConfig()
+      .then((config) => {
+        const next: Me = {
+          authed: config.authorization === true,
+          github: false,
+          site_name: config.site_title || "Monitor",
+          public_page: config.is_public === true,
+          history_days: 7,
+        }
+        setMe(next)
+        setMeError("")
+      })
       .catch((e: Error) => setMeError(e.message || "网络错误"))
   }, [])
 
@@ -413,7 +423,7 @@ export default function App() {
   }, [closed, loadMe])
 
   useEffect(() => {
-    if (me && !me.public_page && !me.authed) location.href = "/admin/"
+    if (me && !me.public_page && !me.authed) location.href = "/admin#/admin"
   }, [me])
 
   // 沉底：**没有实时数据的机器**一律排到列表最末尾（站长 2026-10-14 的口径「离线服务器的
@@ -429,7 +439,7 @@ export default function App() {
     const hasData = (n: typeof a) => Number(!!(n.online && n.metrics))
     return hasData(b) - hasData(a) || a.sort - b.sort || a.id - b.id
   })
-  const selected = sorted.find((n) => n.id === open)
+  const selected = sorted.find((n) => n.cfsmId === open)
   // 分组筛选只求值一次（@/lib/api 的 groupView）：概览卡片与下面的列表吃的是同一份
   // 「该显示哪几台」，切分组时两边一起变——参考站的内置 default 主题就是这个口径。
   const view = groupView(sorted, group, hasGroupTabs(config.listTop))
@@ -480,7 +490,9 @@ export default function App() {
    * 也能原样复原）。延迟行那一下多带一个 `?tab=latency`（见 NodeCard 的 onOpenLatency）。
    */
   const openNode = (id: number, tab: "latency" | null = null) => {
-    go(id, pageUrl(id, tab, { group: groupNow, region: regionNow, q: query }))
+    const node = sorted.find((item) => item.id === id)
+    if (!node) return
+    go(node.cfsmId, pageUrl(node.cfsmId, tab, { group: groupNow, region: regionNow, q: query }))
   }
   const openList = () => {
     go(null, pageUrl(null, null, { group: groupNow, region: regionNow, q: query }))
@@ -583,7 +595,7 @@ export default function App() {
               label here would push the site name aside on a phone. */}
           <Button variant="ghost" size="icon" asChild>
             <a
-              href="/admin/"
+              href="/admin#/admin"
               title={me.authed ? "进入后台" : "登录"}
               aria-label={me.authed ? "进入后台" : "登录"}
             >
