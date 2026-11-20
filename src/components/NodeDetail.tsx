@@ -227,18 +227,46 @@ export function NodeDetail({ node, embedded = false, onOpenDetail, historyDays, 
     // to two thirds of every response and was never drawn.
     const points = Math.round(globalThis.innerWidth * (globalThis.devicePixelRatio || 1))
     const series = tab === "latency" ? "ping" : "metrics"
-    api<{ metrics: Point[]; ping: PingPoint[]; probes: Probes; loss?: Loss }>(
-      `/nodes/${node.id}/metrics?hours=${hours}&points=${points}&series=${series}`,
+    api<Array<Record<string, any>>>(
+      "/history/all?id=" + encodeURIComponent(node.cfsmId) + "&hours=" + hours,
     )
-      .then((next) => { if (active) setData(next) })
+      .then((rows) => {
+        if (!active) return
+        const probes: Probes = node.cfsmProbeNames || { "0": "电信", "1": "联通", "2": "移动", "3": "BGP" }
+        const metrics: Point[] = rows.map((row) => ({
+          ts: Number(row.timestamp || 0) / 1000,
+          cpu: Number(row.cpu || 0),
+          mem_used: Number(row.ram_used || 0) * 1024 * 1024,
+          disk_used: Number(row.disk_used || 0) * 1024 * 1024,
+          net_rx: Number(row.net_in_speed || 0),
+          net_tx: Number(row.net_out_speed || 0),
+          tcp: typeof row.tcp_conn === "number" ? row.tcp_conn : null,
+          udp: typeof row.udp_conn === "number" ? row.udp_conn : null,
+          procs: typeof row.processes === "number" ? row.processes : null,
+        })).filter((row) => row.ts > 0)
+        const ping: PingPoint[] = []
+        const loss: Loss = {}
+        const keys = ["ct", "cu", "cm", "bd"]
+        rows.forEach((row) => keys.forEach((key, index) => {
+          const value = row["ping_" + key]
+          if (value === false || value === undefined) return
+          const taskId = index
+          const lossValue = row["loss_" + key]
+          if (typeof lossValue === "number") loss[String(taskId)] = Math.max(loss[String(taskId)] || 0, lossValue)
+          ping.push({
+            task_id: taskId,
+            ts: Number(row.timestamp || 0) / 1000,
+            latency: value === null ? null : Number(value),
+            loss: typeof lossValue === "number" ? lossValue : 0,
+          })
+        }))
+        setData({ metrics, ping, probes, loss })
+      })
       .catch((e: Error) => {
-        // `|| "..."` as in App.tsx: HTTP/2 dropped statusText, so a bodiless
-        // failure from a proxy arrives as the empty string and renders as no
-        // error.
         if (active) { setFailed(e.message || "网络错误"); setData({ metrics: [], ping: [], probes: {} }) }
       })
     return () => { active = false }
-  }, [node.id, hours, tab])
+  }, [node.cfsmId, hours, tab])
 
   const m = node.metrics
   // 计费那一截（价格 / 周期）：原先只收在「经典 / 延迟」两档的浮层里，浮层撤掉后搬到本页
