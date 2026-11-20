@@ -449,7 +449,7 @@ function RegionFlag({ code }: { code: string }) {
   return (
     <img
       className="globe-reg-flag"
-      src={`/flags/${code}.svg`}
+      src={`/assets/flags/${code}.svg`}
       alt=""
       width={16}
       height={12}
