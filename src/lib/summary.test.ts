@@ -18,7 +18,7 @@ const TB = 1024 ** 4
 
 function node(id: number, over: Partial<Node> = {}): Node {
   return {
-    id, name: `节点${id}`, sort: id, public: true, online: false, country: "", group: "",
+    id, cfsmId: String(id), name: `节点${id}`, sort: id, public: true, online: false, country: "", group: "",
     last_seen: 0, metrics: null, os: "", kernel: "", arch: "", virt: "", cpu_name: "",
     cpu_cores: 0, mem_total: 0, swap_total: 0, disk_total: 0, agent_version: "",
     price: 0, currency: "", billing_cycle: "", expires_at: null, traffic_limit: 0,
@@ -35,7 +35,7 @@ const metrics = (over: Partial<NonNullable<Node["metrics"]>> = {}) => ({
 })
 
 const empty: Fleet = {
-  total: 0, online: 0, dayRx: 0, dayTx: 0, totalRx: 0, totalTx: 0,
+  total: 0, online: 0, offline: 0, dayRx: 0, dayTx: 0, totalRx: 0, totalTx: 0,
   netRx: 0, netTx: 0, busiest: null,
 }
 
