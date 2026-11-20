@@ -4,6 +4,7 @@ import tailwindcss from "@tailwindcss/vite"
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  publicDir: false,
   // import.meta.dirname rather than new URL(...).pathname: the latter is
   // URL-encoded, so a checkout under a path containing a space or a non-ASCII
   // name resolves to %20 and the alias silently points nowhere.
