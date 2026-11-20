@@ -23,7 +23,7 @@ function node(id: number, over: Partial<Node> = {}): Node {
     cpu_cores: 0, mem_total: 0, swap_total: 0, disk_total: 0, agent_version: "",
     price: 0, currency: "", billing_cycle: "", expires_at: null, traffic_limit: 0,
     traffic_mode: "sum", traffic_reset_day: 1, total_rx: 0, total_tx: 0,
-    month_rx: 0, month_tx: 0, month_start: "", month_rx: 0, month_tx: 0,
+    month_rx: 0, month_tx: 0, month_start: "", day_rx: 0, day_tx: 0,
     ...over,
   }
 }
