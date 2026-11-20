@@ -134,7 +134,7 @@ export function cycleText(node: Node): string | null {
  * 旧 hub 没这个 key 时，才退回按 `expires_at` 自己数。
  */
 export function expiryText(node: Node): string | null {
-  const days = node.expires_in !== undefined ? node.expires_in : daysUntil(node.expires_at)
+  const days = typeof node.expires_in === "number" ? node.expires_in : daysUntil(node.expires_at)
   if (days === null || days === undefined) return null
   if (days < 0) return `已过期 ${-days} 天`
   if (days === 0) return "今天到期"
