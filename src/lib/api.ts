@@ -61,6 +61,7 @@ export type Node = {
   billing_cycle:string
   expires_at:string|null
   expires_in?:number|null
+  show_expire?:boolean
   traffic_limit:number
   traffic_mode:string
   traffic_reset_day:number
@@ -265,8 +266,10 @@ export function toNode(server:CfsmServer,sysConfig:SysConfig={}):Node {
   const currency=CFSM_CURRENCY_CODES[currencyRaw]||currencyRaw
   const trafficMode=String(server.traffic_calc_type||"total").toLowerCase()
   const used=trafficMode==="ul"||trafficMode==="up"?monthlyOut:trafficMode==="dl"||trafficMode==="down"?monthlyIn:trafficMode==="max"?Math.max(monthlyIn,monthlyOut):monthlyIn+monthlyOut
-  const showPrice=sysConfig.show_price===true
-  const showExpire=sysConfig.show_expire===true
+  const enabled=(value:unknown)=>value===true||value==="true"||value==="1"||value===1
+  const showPrice=enabled(sysConfig.show_price)
+  const showExpire=enabled(sysConfig.show_expire)
+  const expiryDate=String(server.expire_date??server.expires_at??server.expiry_date??"").trim()||null
   const metrics:Metrics|null=server.last_updated?{
     uptime,cpu:number(server.cpu),load:parseLoad(server.load_avg),
     mem_total:ramTotal,mem_used:ramUsed,swap_total:swapTotal,swap_used:swapUsed,
@@ -299,8 +302,9 @@ export function toNode(server:CfsmServer,sysConfig:SysConfig={}):Node {
     cpu_name:String(server.cpu_info||""),cpu_cores:number(server.cpu_cores),
     mem_total:ramTotal,swap_total:swapTotal,disk_total:diskTotal,agent_version:String(server.agent_version||""),
     price:showPrice?price:0,currency,billing_cycle:showPrice?String(server.billing_cycle||""):"",
-    expires_at:showExpire?(String(server.expire_date||"").trim()||null):null,
-    expires_in:showExpire?daysUntil(String(server.expire_date||"").trim()||null):null,
+    expires_at:showExpire?expiryDate:null,
+    expires_in:showExpire?daysUntil(expiryDate):null,
+    show_expire:showExpire,
     traffic_limit:parseTrafficLimit(server.traffic_limit),traffic_mode:trafficMode,
     traffic_reset_day:number(server.reset_day),total_rx:number(server.net_rx),total_tx:number(server.net_tx),
     month_rx:monthlyIn,month_tx:monthlyOut,month_used:used,month_start:"",
@@ -467,6 +471,7 @@ export function useNodes(activeId:string|null=null) {
   const [siteConfig,setSiteConfig]=useState<CfsmConfig|null>(siteConfigCache)
   const [stats,setStats]=useState<ServerStats|null>(null)
   const [sysConfig,setSysConfig]=useState<SysConfig>({})
+  const sysConfigRef=useRef<SysConfig>({})
   const raw=useRef<Map<string,CfsmServer>>(new Map())
   const loaded=useRef(false)
   const activeIdRef=useRef(activeId)
@@ -481,7 +486,7 @@ export function useNodes(activeId:string|null=null) {
       raw.current.set(item.id,mergePatch(existing,item.patch,item.timestamp));changed=true
     }
     if(changed){
-      const mapped=safeNodes([...raw.current.values()].sort((a,b)=>number(a.sort_order)-number(b.sort_order)).map(row=>toNode(row,sysConfig)))
+      const mapped=safeNodes([...raw.current.values()].sort((a,b)=>number(a.sort_order)-number(b.sort_order)).map(row=>toNode(row,sysConfigRef.current)))
       sample(mapped);setNodes(mapped)
       const active=activeIdRef.current?raw.current.get(activeIdRef.current):undefined
       if(active)setDetailNode(toNode(active,active.sysConfig||sysConfig))
@@ -510,8 +515,10 @@ export function useNodes(activeId:string|null=null) {
         if(!alive)return
         const rows=mapLatestUpdates(Array.isArray(data.servers)?data.servers:[],data.latestReportUpdates)
         raw.current=new Map(rows.map(row=>[String(row.id),row]));loaded.current=true
-        setStats(data.stats||null);setSysConfig(data.sysConfig||{})
-        const mapped=safeNodes(rows.sort((a,b)=>number(a.sort_order)-number(b.sort_order)).map(row=>toNode(row,data.sysConfig||{})))
+        const nextSysConfig=data.sysConfig||{}
+        sysConfigRef.current=nextSysConfig
+        setStats(data.stats||null);setSysConfig(nextSysConfig)
+        const mapped=safeNodes(rows.sort((a,b)=>number(a.sort_order)-number(b.sort_order)).map(row=>toNode(row,nextSysConfig)))
         sample(mapped);setNodes(mapped);setError(null);setClosed(false)
       }else{
         setDetailNode(null)
@@ -519,8 +526,8 @@ export function useNodes(activeId:string|null=null) {
         if(!alive)return
         const replay=mapLatestUpdates([server],server.latestReportUpdates as CfsmUpdate[]|undefined)[0]
         raw.current.set(String(replay.id),replay)
-        if(replay.sysConfig)setSysConfig(replay.sysConfig)
-        setDetailNode(toNode(replay,replay.sysConfig||sysConfig));setError(null);setClosed(false)
+        if(replay.sysConfig){sysConfigRef.current=replay.sysConfig;setSysConfig(replay.sysConfig)}
+        setDetailNode(toNode(replay,replay.sysConfig||sysConfigRef.current));setError(null);setClosed(false)
       }
     }).catch(e=>{if(alive){setError(e.message||"读取服务器失败");if(e instanceof ApiError&&e.status===401)setClosed(true)}})
     return()=>{alive=false}
@@ -547,7 +554,9 @@ export function useNodes(activeId:string|null=null) {
       }else{
         void request<CfsmServer>("/server?id="+encodeURIComponent(activeId)).then(server=>{
           const replay=mapLatestUpdates([server],server.latestReportUpdates as CfsmUpdate[]|undefined)[0]
-          raw.current.set(String(replay.id),replay);setDetailNode(toNode(replay,replay.sysConfig||sysConfig));start()
+          raw.current.set(String(replay.id),replay)
+          if(replay.sysConfig)sysConfigRef.current=replay.sysConfig
+          setDetailNode(toNode(replay,replay.sysConfig||sysConfigRef.current));start()
         }).catch(e=>setError(e.message||"详情恢复失败"))
       }
     }
