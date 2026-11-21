@@ -427,7 +427,7 @@ export function NodeCard({ node, onOpen, onOpenLatency, onWarm, latencyLines, ca
           {cardStyle !== "detailed" && node.show_expire && (
             <div data-stat="expiry" className="mt-3 flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
               <CalendarClock className="size-3 shrink-0" />
-              <span className="tnum truncate">{ExpiryReading({ node })}</span>
+              <span className="tnum truncate"><ExpiryReading node={node} /></span>
               {node.expires_at && <span className="tnum ml-auto shrink-0">{node.expires_at}</span>}
             </div>
           )}
