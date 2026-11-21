@@ -36,6 +36,12 @@ assert.equal(mappedDl.currency,"CNY","CFSM ¥ is normalized to ISO CNY for the b
 assert.equal(mappedDl.billing_cycle,"quarter","CFSM billing cycle passes through")
 assert.equal(mappedDl.expires_at,expiryDate,"expiry date is retained")
 assert.equal(mappedDl.expires_in,daysUntil(expiryDate),"expiry days use the shared Beijing calendar")
+assert.equal(mappedDl.show_expire,true,"expiry display flag is preserved on the mapped node")
+const mappedStringFlag=toNode(cfsmServer,{show_expire:"true" as unknown as boolean})
+assert.equal(mappedStringFlag.expires_at,expiryDate,"string true from older CFSM configs still enables expiry")
+assert.equal(mappedStringFlag.show_expire,true,"string expiry flag normalizes to boolean")
+assert.equal(toNode({...cfsmServer,expire_date:""},{show_expire:true}).expires_at,null,"empty expiry date stays empty")
+
 assert.equal(toNode(cfsmServer,{show_price:true,show_expire:false}).expires_at,null,"hidden expiry setting suppresses date")
 assert.equal(toNode(cfsmServer,{show_price:true,show_expire:false}).expires_in,null,"hidden expiry setting suppresses days")
 for (const [mode,expected] of [["dl",2*GiB],["ul",5*GiB],["max",5*GiB],["total",7*GiB]] as const) {
