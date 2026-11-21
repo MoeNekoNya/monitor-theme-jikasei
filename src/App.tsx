@@ -655,7 +655,7 @@ export default function App() {
           <>
             {/* 概览卡片行：设置里没选它时整个不挂载（不是藏起来），首屏与没有这个功能时一致。
                 「月度预算剩余价值版」只是同一行换一副面孔，组件另收一个 finance 开关。 */}
-            {hasSummary(config.listTop) && <SummaryCards nodes={found.shown} group={view.current} finance={isBudgetLayout(config.listTop)} searching={found.active} stats={stats || undefined} />}
+            <SummaryCards nodes={found.shown} group={view.current} finance={isBudgetLayout(config.listTop)} searching={found.active} stats={stats || undefined} />
             {/* 一台都剩不下时说清楚是谁把它筛没的，并指回去哪儿取消 —— 否则访客只看到
                 一大片空白，会以为站点坏了。搜索那一层排在前面：它是最后叠上去、也是访客
                 刚刚动手的那一层（文案写「当前筛选下」，地区那层也在时同样成立）。 */}
