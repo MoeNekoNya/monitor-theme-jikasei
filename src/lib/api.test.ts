@@ -42,8 +42,11 @@ assert.equal(mappedStringFlag.expires_at,expiryDate,"string true from older CFSM
 assert.equal(mappedStringFlag.show_expire,true,"string expiry flag normalizes to boolean")
 assert.equal(toNode({...cfsmServer,expire_date:""},{show_expire:true}).expires_at,null,"empty expiry date stays empty")
 
-assert.equal(toNode(cfsmServer,{show_price:true,show_expire:false}).expires_at,null,"hidden expiry setting suppresses date")
-assert.equal(toNode(cfsmServer,{show_price:true,show_expire:false}).expires_in,null,"hidden expiry setting suppresses days")
+assert.equal(toNode(cfsmServer,{show_price:true,show_expire:false}).expires_at,expiryDate,"a stored CFSM expiry date remains visible when the legacy switch is false")
+assert.equal(toNode(cfsmServer,{show_price:true,show_expire:false}).expires_in,daysUntil(expiryDate),"expiry days are still calculated when sysConfig omits/enables no switch")
+const noExpiry=toNode({...cfsmServer,expire_date:""},{show_expire:true})
+assert.equal(noExpiry.expires_at,null,"an empty database expiry remains empty")
+assert.equal(noExpiry.expires_in,null,"an empty database expiry does not invent remaining days")
 for (const [mode,expected] of [["dl",2*GiB],["ul",5*GiB],["max",5*GiB],["total",7*GiB]] as const) {
   assert.equal(toNode({...cfsmServer,traffic_calc_type:mode},{show_expire:true}).month_used,expected,`CFSM traffic mode ${mode}`)
 }
