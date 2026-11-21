@@ -12,7 +12,7 @@ import { summarize, type Fleet } from "@/lib/summary"
 /**
  * 列表页顶上那行概览卡片，两副面孔（主题设置的「列表页顶部」里选）：
  *
- *   原版（summary / both）——四张卡片，各一块读数：节点 / 最忙节点 / 本月流量 / 实时网速。
+ *   原版概览——节点 / 最忙节点 / 本月流量 / 总流量 / 实时网速五块读数。
  *   月度预算剩余价值版（budget / bothBudget）——四张卡片，但前两张各排两块读数：
  *     ① 月度预算 + 剩余价值（口径见 lib/money.ts）
  *     ② 节点 + 最忙节点（照参考图：节点挪到原先最忙节点那一侧、最忙节点往右让位，
@@ -357,6 +357,30 @@ function Sparkline({ series }: { series: { rx: number; tx: number }[] }) {
 }
 
 /** 「节点」那块读数：在线 / 总数 + 离线台数。两副面孔共用，块本身一模一样。 */
+/** 本月流量的逐节点明细。节点月度计数来自 CFSM 的 net_rx_monthly / net_tx_monthly。 */
+function TrafficDetail({ nodes }: { nodes: Node[] }) {
+  const sorted = [...nodes].sort((a, b) => (b.month_used ?? b.month_rx + b.month_tx) - (a.month_used ?? a.month_rx + a.month_tx))
+  return (
+    <>
+      <span data-detail-head="" className="block border-b px-2.5 py-1.5 text-muted-foreground">节点明细 · {nodes.length} 台</span>
+      <DetailScroll>
+        {sorted.map((node) => (
+          <span key={node.cfsmId} className="block border-b px-2.5 py-1.5 last:border-0">
+            <span className="flex min-w-0 items-baseline justify-between gap-3">
+              <span className="min-w-0 truncate font-medium">{node.name}</span>
+              <span className="tnum shrink-0 text-muted-foreground">↓ {bytes(node.month_rx)} ↑ {bytes(node.month_tx)}</span>
+            </span>
+            <span className="tnum mt-1 block text-muted-foreground">
+              当前速率　↓ {node.metrics ? rate(node.metrics.net_rx) : "—"}　↑ {node.metrics ? rate(node.metrics.net_tx) : "—"}
+            </span>
+          </span>
+        ))}
+      </DetailScroll>
+      <span data-detail-foot="" className="block border-t px-2.5 py-1.5 text-muted-foreground">月度流量按各节点当前计数展示；速率为最近一次上报值</span>
+    </>
+  )
+}
+
 function NodesBlock({ fleet, searching = false }: { fleet: Fleet; searching?: boolean }) {
   const offline = fleet.offline
   return (
@@ -414,7 +438,7 @@ export function SummaryCards({ nodes, group, finance = false, searching = false,
     /* 版式照参考站：`sm` 起两列、`lg` 起四列。**手机是一列而不是参考站的两列**——参考站每张
        卡只有一个大数，两个数并排也放得下；本站的「本月流量 / 实时网速」一张卡里有两个方向，
        390px 两列时每张卡只有 173px、两个数会各自截断（护栏量过）。 */
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
       {finance ? (
         <>
           {/* 第一张卡：月度预算 + 剩余价值。两个数都是把各站的账按汇率折成人民币后相加，
@@ -452,8 +476,8 @@ export function SummaryCards({ nodes, group, finance = false, searching = false,
 
       <Tile>
         {/* 本月流量：卡片面上只有两个数，**悬停/点一下**摊出节点明细（2026-10-30）——
-            每台今天的上下行、以及今天冲到的采样峰值与时刻（见 @/components/TrafficDetail）。 */}
-        <Block title="本月流量" wide>
+            逐台展示 CFSM 当前提供的本月上下行计数与最近上报速率。 */}
+        <Block title="本月流量" wide detail={nodes.length > 0 ? <TrafficDetail nodes={nodes} /> : undefined}>
           {/* 大数一行（今日上下行），累计并成一行小字——参考站整张卡就是「小标签 / 大数 /
               一行小字」三段，这样四张卡等高、整行才是一个节奏。四个数一个没少。
               栅格间距沿用 `gap-x-2`（与 Pair 同一个值）：整行四张卡的第二列因此落在同一条
@@ -469,6 +493,16 @@ export function SummaryCards({ nodes, group, finance = false, searching = false,
               <Val icon={ArrowUp}>{bytes(fleet.totalTx)}</Val>
             </span>
           </Foot>
+        </Block>
+      </Tile>
+
+      <Tile>
+        <Block title="总流量" hint="所有节点累计下载与上传流量">
+          <div className="mt-1 grid grid-cols-2 gap-x-2 text-2xl font-semibold tracking-tight">
+            <Val icon={ArrowDown}><Unit>{bytes(fleet.totalRx)}</Unit></Val>
+            <Val icon={ArrowUp}><Unit>{bytes(fleet.totalTx)}</Unit></Val>
+          </div>
+          <Foot>合计 {bytes(fleet.totalRx + fleet.totalTx)}</Foot>
         </Block>
       </Tile>
 
