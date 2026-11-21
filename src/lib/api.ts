@@ -489,7 +489,7 @@ export function useNodes(activeId:string|null=null) {
       const mapped=safeNodes([...raw.current.values()].sort((a,b)=>number(a.sort_order)-number(b.sort_order)).map(row=>toNode(row,sysConfigRef.current)))
       sample(mapped);setNodes(mapped)
       const active=activeIdRef.current?raw.current.get(activeIdRef.current):undefined
-      if(active)setDetailNode(toNode(active,active.sysConfig||sysConfig))
+      if(active)setDetailNode(toNode(active,active.sysConfig||sysConfigRef.current))
     }
   }
 
