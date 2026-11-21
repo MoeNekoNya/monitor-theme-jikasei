@@ -12,7 +12,7 @@ import { summarize, type Fleet } from "@/lib/summary"
 /**
  * 列表页顶上那行概览卡片，两副面孔（主题设置的「列表页顶部」里选）：
  *
- *   原版（summary / both）——四张卡片，各一块读数：节点 / 最忙节点 / 本月流量 / 实时网速。
+ *   原版概览——节点 / 最忙节点 / 本月流量 / 总流量 / 实时网速五块读数。
  *   月度预算剩余价值版（budget / bothBudget）——四张卡片，但前两张各排两块读数：
  *     ① 月度预算 + 剩余价值（口径见 lib/money.ts）
  *     ② 节点 + 最忙节点（照参考图：节点挪到原先最忙节点那一侧、最忙节点往右让位，
@@ -476,7 +476,7 @@ export function SummaryCards({ nodes, group, finance = false, searching = false,
 
       <Tile>
         {/* 本月流量：卡片面上只有两个数，**悬停/点一下**摊出节点明细（2026-10-30）——
-            每台今天的上下行、以及今天冲到的采样峰值与时刻（见 @/components/TrafficDetail）。 */}
+            逐台展示 CFSM 当前提供的本月上下行计数与最近上报速率。 */}
         <Block title="本月流量" wide detail={nodes.length > 0 ? <TrafficDetail nodes={nodes} /> : undefined}>
           {/* 大数一行（今日上下行），累计并成一行小字——参考站整张卡就是「小标签 / 大数 /
               一行小字」三段，这样四张卡等高、整行才是一个节奏。四个数一个没少。
