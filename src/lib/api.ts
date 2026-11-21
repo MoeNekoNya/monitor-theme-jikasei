@@ -269,7 +269,7 @@ export function toNode(server:CfsmServer,sysConfig:SysConfig={}):Node {
   const enabled=(value:unknown)=>value===true||value==="true"||value==="1"||value===1
   const showPrice=enabled(sysConfig.show_price)
   const showExpire=enabled(sysConfig.show_expire)
-  const expiryDate=String(server.expire_date??server.expires_at??server.expiry_date??"").trim()||null
+  const expiryDate=String(server.expire_date??server.expireDate??server.expires_at??server.expiresAt??server.expiry_date??server.expiryDate??server.expire_at??server.expiration_date??"").trim()||null
   const metrics:Metrics|null=server.last_updated?{
     uptime,cpu:number(server.cpu),load:parseLoad(server.load_avg),
     mem_total:ramTotal,mem_used:ramUsed,swap_total:swapTotal,swap_used:swapUsed,
@@ -302,9 +302,11 @@ export function toNode(server:CfsmServer,sysConfig:SysConfig={}):Node {
     cpu_name:String(server.cpu_info||""),cpu_cores:number(server.cpu_cores),
     mem_total:ramTotal,swap_total:swapTotal,disk_total:diskTotal,agent_version:String(server.agent_version||""),
     price:showPrice?price:0,currency,billing_cycle:showPrice?String(server.billing_cycle||""):"",
-    expires_at:showExpire?expiryDate:null,
-    expires_in:showExpire?daysUntil(expiryDate):null,
-    show_expire:showExpire,
+    expires_at:expiryDate,
+    expires_in:daysUntil(expiryDate),
+    // Keep a real database expiry date visible even when a legacy sysConfig omitted show_expire.
+    // An empty date remains "无期限"; the card-level switch only controls date-less placeholders.
+    show_expire:showExpire||expiryDate!==null,
     traffic_limit:parseTrafficLimit(server.traffic_limit),traffic_mode:trafficMode,
     traffic_reset_day:number(server.reset_day),total_rx:number(server.net_rx),total_tx:number(server.net_tx),
     month_rx:monthlyIn,month_tx:monthlyOut,month_used:used,month_start:"",
